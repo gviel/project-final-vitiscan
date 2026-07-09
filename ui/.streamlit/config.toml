@@ -1,0 +1,7 @@
+[theme]
+# Thème vert agriculture/environnement
+primaryColor = "#5B8C5A"
+backgroundColor = "#F5F7F4"
+secondaryBackgroundColor = "#E8F3E8"
+textColor = "#2C3E2C"
+font = "sans serif"
