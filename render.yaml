@@ -51,7 +51,24 @@ services:
       # pas de service "weaviate" Docker joignable par nom comme en local docker-compose, et
       # l'auto-héberger sur Render (plan free, disque éphémère + mise en veille) ferait perdre la
       # base à chaque redémarrage. Cf. docs/deploiement-render-streamlit.md.
+      #
+      # Option A : vrai cluster Weaviate Cloud -> WEAVIATE_URL + WEAVIATE_API_KEY.
+      # Option B : Weaviate local exposé via tunnel (ex: ngrok, cf.
+      # docs/simulation-prod-ngrok.md) -> WEAVIATE_CUSTOM_HTTP_HOST/GRPC_HOST + WEAVIATE_API_KEY,
+      # laisser WEAVIATE_URL vide.
       - key: WEAVIATE_URL
         sync: false
       - key: WEAVIATE_API_KEY
         sync: false
+      - key: WEAVIATE_CUSTOM_HTTP_HOST
+        sync: false  # ex: xxxxx.ngrok-free.dev (sans https://) - laisser vide si option A
+      - key: WEAVIATE_CUSTOM_HTTP_PORT
+        value: "443"
+      - key: WEAVIATE_CUSTOM_HTTP_SECURE
+        value: "true"
+      - key: WEAVIATE_CUSTOM_GRPC_HOST
+        sync: false  # ex: 0.tcp.ngrok.io - change à chaque redémarrage du tunnel TCP (plan gratuit)
+      - key: WEAVIATE_CUSTOM_GRPC_PORT
+        sync: false  # port attribué par le tunnel TCP ngrok, change à chaque redémarrage
+      - key: WEAVIATE_CUSTOM_GRPC_SECURE
+        value: "false"  # tunnel TCP brut, pas de TLS applicatif côté Weaviate
