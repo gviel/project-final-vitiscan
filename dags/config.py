@@ -27,6 +27,9 @@ WEAVIATE_TEST_PORT = int(_var("WEAVIATE_TEST_PORT", "8080"))
 WEAVIATE_PROD_HOST = _var("WEAVIATE_PROD_HOST", "host.docker.internal")
 WEAVIATE_PROD_PORT = int(_var("WEAVIATE_PROD_PORT", "8081"))  # port publié par le docker-compose.yml racine
 WEAVIATE_GRPC_PORT = int(_var("WEAVIATE_GRPC_PORT", "50051"))
+# Clé API du Weaviate "prod" (accès anonyme désactivé, cf. docker-compose.yml racine) - même valeur
+# que .env racine / rag-llm/.env. weaviate-test reste en accès anonyme, pas besoin de clé pour lui.
+WEAVIATE_API_KEY = _var("WEAVIATE_API_KEY", "")
 
 # Nom de la Variable Airflow qui mémorise le timestamp du dernier document ingéré en prod
 LAST_INGESTED_VAR = "vitiscan_rag_last_ingested_at"

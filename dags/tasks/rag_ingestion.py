@@ -18,8 +18,8 @@ import boto3
 
 from config import (
     AWS_DEFAULT_REGION, LAST_INGESTED_VAR, RAG_LLM_DIR, RAG_S3_BUCKET, RAG_S3_PREFIX,
-    WEAVIATE_GRPC_PORT, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT, WEAVIATE_TEST_HOST, WEAVIATE_TEST_PORT,
-    WORK_DIR,
+    WEAVIATE_API_KEY, WEAVIATE_GRPC_PORT, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT,
+    WEAVIATE_TEST_HOST, WEAVIATE_TEST_PORT, WORK_DIR,
 )
 
 sys.path.insert(0, str(RAG_LLM_DIR))
@@ -125,6 +125,7 @@ def run_golden_prompts_gate(**context) -> None:
     os.environ["WEAVIATE_PORT"] = str(WEAVIATE_TEST_PORT)
     os.environ["WEAVIATE_GRPC_PORT"] = str(WEAVIATE_GRPC_PORT)
     os.environ["WEAVIATE_URL"] = ""  # force la connexion locale (host/port) plutôt que cloud
+    os.environ["WEAVIATE_API_KEY"] = ""  # weaviate-test tourne en accès anonyme, pas d'auth requise
 
     from app.golden_prompts import GoldenPromptFailure, GoldenPromptSkipped, build_payload, evaluate_case, load_cases
     from app.rag_pipeline import generate_treatment_advice
@@ -161,18 +162,21 @@ def ingest_prod(**context):
     from airflow.models import Variable
 
     tmp_dir = context["ti"].xcom_pull(task_ids="download_and_ingest_test", key="knowledge_dir")
-    _run_ingestion(tmp_dir, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT)
+    # Weaviate "prod" (docker-compose.yml racine) exige une clé API (accès anonyme désactivé,
+    # cf. docker-compose.yml) - contrairement à weaviate-test, resté en accès anonyme.
+    _run_ingestion(tmp_dir, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT, api_key=WEAVIATE_API_KEY)
 
     last_modified = context["ti"].xcom_pull(task_ids="branch_check_new_docs", key="last_modified")
     Variable.set(LAST_INGESTED_VAR, last_modified or datetime.now(timezone.utc).isoformat())
     print(f"[rag_ingestion] Ingestion prod terminée, {LAST_INGESTED_VAR}={last_modified}")
 
 
-def _run_ingestion(knowledge_dir: str, weaviate_host: str, weaviate_port: int) -> None:
+def _run_ingestion(knowledge_dir: str, weaviate_host: str, weaviate_port: int, api_key: str = "") -> None:
     os.environ["WEAVIATE_HOST"] = weaviate_host
     os.environ["WEAVIATE_PORT"] = str(weaviate_port)
     os.environ["WEAVIATE_GRPC_PORT"] = str(WEAVIATE_GRPC_PORT)
     os.environ["WEAVIATE_URL"] = ""  # force la connexion locale (host/port) plutôt que cloud
+    os.environ["WEAVIATE_API_KEY"] = api_key or ""
 
     from app.ingestion import run_ingestion
 

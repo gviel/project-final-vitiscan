@@ -53,6 +53,9 @@ x-airflow-common:
     WEAVIATE_TEST_PORT: "8080"
     WEAVIATE_PROD_HOST: "${WEAVIATE_PROD_HOST:-host.docker.internal}"
     WEAVIATE_PROD_PORT: "${WEAVIATE_PROD_PORT:-8081}"
+    # Clé API du Weaviate "prod" (accès anonyme désactivé côté docker-compose.yml racine) - même
+    # valeur que .env racine / rag-llm/.env.
+    WEAVIATE_API_KEY: "${WEAVIATE_API_KEY:?WEAVIATE_API_KEY manquant, cf. .env.template}"
     WEAVIATE_GRPC_PORT: "50051"
     DAG_RAG_INGESTION_CRON: "${DAG_RAG_INGESTION_CRON:-0 * * * *}"
     # Optionnel : sans HF_API_TOKEN, la porte de qualité golden_prompts_gate fonctionne quand même

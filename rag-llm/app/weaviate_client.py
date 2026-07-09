@@ -27,18 +27,38 @@ def get_embedder() -> SentenceTransformer:
 
 @contextmanager
 def weaviate_client():
+    """
+    3 modes de connexion, dans cet ordre de priorité :
+    1. WEAVIATE_CUSTOM_HTTP_HOST défini -> connect_to_custom() : Weaviate auto-hébergé exposé via
+       un nom d'hôte externe quelconque (ex: tunnel ngrok), avec REST et gRPC potentiellement sur
+       des hôtes/ports différents (2 tunnels) - cas non couvert par connect_to_weaviate_cloud(),
+       qui suppose la topologie Weaviate Cloud (même hôte, ports standards).
+    2. WEAVIATE_URL défini -> connect_to_weaviate_cloud() : vrai cluster Weaviate Cloud.
+    3. Sinon -> connect_to_local() : connexion réseau Docker locale (WEAVIATE_HOST/PORT/GRPC_PORT).
+    """
+    custom_http_host = (os.getenv("WEAVIATE_CUSTOM_HTTP_HOST") or "").strip()
     url = (os.getenv("WEAVIATE_URL") or "").strip()
     api_key = (os.getenv("WEAVIATE_API_KEY") or "").strip()
+    auth = weaviate.auth.AuthApiKey(api_key) if api_key else None
 
-    # Sécurité prod : on refuse localhost si pas de URL cloud
-    if not url and (os.getenv("HF_SPACE_ID") or os.getenv("SPACE_ID") or os.getenv("K_SERVICE")):
+    # Sécurité prod : on refuse localhost si aucune config externe (custom ou cloud) n'est fournie
+    if not url and not custom_http_host and (os.getenv("HF_SPACE_ID") or os.getenv("SPACE_ID") or os.getenv("K_SERVICE")):
         raise RuntimeError(
-            "WEAVIATE_URL manquant en environnement déployé. "
-            "Renseigne WEAVIATE_URL et WEAVIATE_API_KEY."
+            "Ni WEAVIATE_CUSTOM_HTTP_HOST ni WEAVIATE_URL ne sont configurés en environnement déployé."
         )
 
-    if url:
-        auth = weaviate.auth.AuthApiKey(api_key) if api_key else None
+    if custom_http_host:
+        client = weaviate.connect_to_custom(
+            http_host=custom_http_host,
+            http_port=int(os.getenv("WEAVIATE_CUSTOM_HTTP_PORT", "443")),
+            http_secure=os.getenv("WEAVIATE_CUSTOM_HTTP_SECURE", "true").lower() == "true",
+            grpc_host=(os.getenv("WEAVIATE_CUSTOM_GRPC_HOST") or custom_http_host).strip(),
+            grpc_port=int(os.getenv("WEAVIATE_CUSTOM_GRPC_PORT", "443")),
+            grpc_secure=os.getenv("WEAVIATE_CUSTOM_GRPC_SECURE", "true").lower() == "true",
+            auth_credentials=auth,
+            additional_config=AdditionalConfig(timeout=Timeout(init=30, query=60, insert=60)),
+        )
+    elif url:
         client = weaviate.connect_to_weaviate_cloud(
             cluster_url=url,
             auth_credentials=auth,
@@ -49,6 +69,7 @@ def weaviate_client():
             host=os.getenv("WEAVIATE_HOST", "localhost"),
             port=int(os.getenv("WEAVIATE_PORT", "8080")),
             grpc_port=int(os.getenv("WEAVIATE_GRPC_PORT", "50051")),
+            auth_credentials=auth,
             additional_config=AdditionalConfig(timeout=Timeout(init=30, query=60, insert=60)),
         )
 
