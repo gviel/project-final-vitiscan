@@ -1,0 +1,18 @@
+# venv + requirements (pas conda) pour le script d'entraînement industrialisé - cf. specs.md.
+# Versions figées pour rester compatible avec mlflow==3.7.0.
+python-dotenv
+requests
+tqdm
+pyyaml
+
+mlflow==3.7.0
+torch==2.5.0
+torchvision==0.20.0
+scikit-learn==1.4.2
+numpy==2.1.3
+pillow>=10.0.0
+boto3
+matplotlib
+seaborn
+
+pytest

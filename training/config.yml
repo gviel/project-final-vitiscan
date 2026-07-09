@@ -1,0 +1,76 @@
+#                                 GLOBAL CONFIGURATION
+# =====================================================================================
+# Consommé par dags/tasks/train_model.py (DAG Airflow "dag_train_model") : chaque entrée de
+# models_to_run est fusionnée avec default_training puis lance un `python train.py ...` dédié
+# (un run = un modèle, cf. training/README.md). Ce fichier n'est PAS lu par train.py lui-même
+# (le script reste utilisable seul, un modèle à la fois, via --model/--epochs/etc. ou .env).
+#
+# EXPERIMENT_NAME / MLFLOW_URI / TRAINING_S3_BUCKET ne sont volontairement pas répétés ici : le DAG
+# les reçoit comme n'importe quelle autre tâche Airflow, via les variables d'environnement du
+# conteneur (cf. dags/config.py, même pattern que pour le DAG RAG).
+
+# --- Default training hyperparameters (appliqués à chaque modèle, sauf surcharge locale) ---
+default_training:
+  dataset_name: "inrae"
+  optimizer: "Adam"
+  loss_function: "CrossEntropyLoss"
+  batch_size: 32
+  epochs: 25
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  patience: 5
+
+
+#                                    MODELS TO RUN
+# =====================================================================================
+# Modèles actifs pour le premier sweep Airflow : resnet18/resnet34 seulement (décision
+# utilisateur). Les autres entrées sont conservées commentées ci-dessous, pas supprimées.
+
+models_to_run:
+
+  # --- ResNets ---
+  - name: "resnet18"
+    input_size: 224
+    freeze_base: True
+    description: "ResNet-18, Transfer learning"
+
+  - name: "resnet34"
+    input_size: 224
+    freeze_base: True
+    description: "ResNet-34, Transfer learning"
+
+  # à réactiver dans une passe ultérieure car trop long à entrainer
+  # - name: "resnet50"
+  #   input_size: 224
+  #   freeze_base: False
+  #   learning_rate: 0.00005
+  #   description: "ResNet-50, Fine-tuning"
+
+  # --- EfficientNets ---
+  # Désactivés pour l'instant : input_size recommandé (240/260) différent de 224, mais
+  # data_utils.py::create_transforms/create_test_transforms font un Resize((224, 224)) fixe,
+  # quel que soit le modèle. Les entraîner tel quel donnerait des résultats en dessous de leur
+  # potentiel réel. À réactiver seulement après avoir mis un --image-size dans train.py.
+  # - name: "efficientnet_b0"
+  #   input_size: 224
+  #   freeze_base: False
+  #   learning_rate: 0.00005
+  #   description: "EfficientNet B0, Fine-Tuning"
+
+  # - name: "efficientnet_b1"
+  #   input_size: 240 # Recommanded size - non appliqué actuellement, cf. commentaire ci-dessus
+  #   freeze_base: False
+  #   learning_rate: 0.00005
+  #   description: "EfficientNet B1, Fine-Tuning"
+
+  # - name: "efficientnet_b2"
+  #   input_size: 260  # Recommanded size - non appliqué actuellement, cf. commentaire ci-dessus
+  #   freeze_base: False
+  #   learning_rate: 0.00005
+  #   description: "EfficientNet B2, Plus performant, Fine-Tuning"
+
+  # --- MobileNet ---
+  # - name: "mobilenet_v2"
+  #   input_size: 224
+  #   freeze_base: True
+  #   description: "MobileNetV2, Trasnfer learning"
