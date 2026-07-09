@@ -40,6 +40,30 @@ Deux sources supportées via `--dataset-name` (par défaut : `inrae`) :
   extraction. Toujours fonctionnel mais plus utilisé (dataset kaggle jugé de moins bonne qualité,
   cf. `specs.md`).
 
+### Répartition des classes (dataset `inrae`, `dataset_inrae.zip`)
+
+Comptage réel des images par classe et par split (`train`/`val`/`test`), vérifié par inspection du
+zip (`zipfile.namelist()`) :
+
+| Classe | train | val | test | total |
+|---|---|---|---|---|
+| `sain` | 319 | 99 | 99 | 517 |
+| `plasmopara_viticola` | 346 | 107 | 106 | 559 |
+| `elsinoe_ampelina` | 263 | 82 | 84 | 429 |
+| `guignardia_bidwellii` | 170 | 52 | 55 | 277 |
+| `colomerus_vitis` | 120 | 35 | 39 | 194 |
+| `erysiphe_necator` | 92 | 28 | 32 | 152 |
+| `phaeomoniella_chlamydospora` | 83 | 26 | 26 | 135 |
+
+`sain` n'est pas la classe la plus représentée (`plasmopara_viticola` l'est davantage) — cohérent
+avec un dataset INRAE réel, pas de signe d'un ajout artificiel externe.
+
+⚠️ **Provenance** : ni le notebook (`CNN_model_FT.ipynb`) ni `data_utils.py` ne copient d'images du
+dataset Kaggle vers le dataset INRAE — le seul traitement appliqué à `raw_data_inrae/sain/` est un
+**sous-échantillonnage** (suppression aléatoire, seed fixe, plafond 350 images, jamais un ajout).
+Le contenu initial de `raw_data_inrae/` (avant tout script de ce dépôt) est fourni en amont et sa
+provenance exacte n'est pas documentée dans le code.
+
 ## Local (venv)
 
 ```bash
