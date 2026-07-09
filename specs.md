@@ -76,6 +76,7 @@ Ce projet est un projet final qui vaut pour 2 formations :
     - je ne sais pas ce qu'a utilisé le développeur comme modèle: un modèle Hugging Face gratuit? à déterminer en analysant le code
     - quels tests en place? il faudrait un test de type "golden prompts" dans un fichier yaml avec jeux de prompts / réponses attendues
 - créer une stack docker-compose locale permettant de tout tester de bout en bout rapidement (sauf MLFlow qui reste déployé sur HF)
+    - (mineur, pas urgent) l'environnement de dev de référence n'a que `docker-compose` v1 (legacy, paquet Ubuntu `docker-compose`/`python3-compose`) car Docker a été installé via les paquets Ubuntu et non le dépôt officiel Docker Inc. (`download.docker.com`) - pour avoir le plugin `docker compose` v2, ajouter ce dépôt puis `apt install docker-compose-plugin` (peut coexister avec `docker-compose` v1)
 - pouvoir déployer en prod sur Render et Streamlit (avoir une doc qui indiquer les étapes à suivre pour le premier déploiement ou l'update)
 
 
