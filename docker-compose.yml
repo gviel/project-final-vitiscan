@@ -100,5 +100,27 @@ services:
       - rag-llm
     restart: unless-stopped
 
+  # Optionnel, ne démarre PAS avec un simple `docker-compose up` (profile dédié) - expose le
+  # Weaviate local publiquement pour simuler un déploiement Render, cf.
+  # docs/simulation-prod-ngrok.md. Démarrage : `docker-compose --profile ngrok up -d ngrok`.
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: vitiscan_ngrok
+    restart: unless-stopped
+    profiles: ["ngrok"]
+    environment:
+      # Défaut vide (pas `:?` obligatoire) : sinon docker-compose refuserait TOUTE commande, même
+      # sur les autres services, tant que NGROK_AUTHTOKEN n'est pas renseigné (l'interpolation de
+      # variables est évaluée pour tous les services, indépendamment du profile actif).
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:-}"
+    volumes:
+      - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
+    command: start --all --config /etc/ngrok.yml
+    ports:
+      - "4040:4040"    # interface web ngrok (statut des tunnels, adresse gRPC attribuée)
+    depends_on:
+      weaviate:
+        condition: service_healthy
+
 volumes:
   vitiscan_weaviate_data:

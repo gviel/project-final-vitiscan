@@ -1,0 +1,23 @@
+# Config ngrok (agent v3) pour exposer le Weaviate local — cf. docs/simulation-prod-ngrok.md.
+# NGROK_AUTHTOKEN passé séparément via variable d'environnement (pas dans ce fichier, cf.
+# docker-compose.yml + .env racine) : ce fichier ne contient aucun secret, il peut être committé.
+#
+# À COMPLÉTER : remplacez REPLACE-WITH-YOUR-DEV-DOMAIN par votre domaine fixe gratuit
+# (dashboard.ngrok.com/domains, généré automatiquement à la création du compte).
+version: 3
+
+endpoints:
+  # REST (port 8080 de weaviate, joignable par nom de service sur le réseau docker-compose) -
+  # domaine fixe gratuit, ne change pas au redémarrage.
+  - name: weaviate-rest
+    url: https://REPLACE-WITH-YOUR-DEV-DOMAIN.ngrok-free.dev
+    upstream:
+      url: weaviate:8080
+
+  # gRPC (port 50051 de weaviate) - adresse ALÉATOIRE à chaque redémarrage sur le plan gratuit
+  # (adresse réservée = payant). Après démarrage, lire l'adresse attribuée sur
+  # http://localhost:4040 (interface web ngrok) ou `docker logs vitiscan_ngrok`.
+  - name: weaviate-grpc
+    url: tcp://
+    upstream:
+      url: weaviate:50051
