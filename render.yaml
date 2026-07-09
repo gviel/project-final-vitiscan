@@ -11,6 +11,10 @@ services:
     type: web
     runtime: docker
     plan: free
+    rootDir: api
+    # rootDir ne limite QUE le déclenchement de l'auto-deploy (un push touchant seulement ui/ ou
+    # training/ ne redéploiera pas ce service) - dockerfilePath/dockerContext restent résolus
+    # depuis la racine du repo, indépendamment de rootDir (confirmé doc officielle Render).
     dockerfilePath: api/Dockerfile
     # dockerContext non renseigné : défaut = racine du repo, nécessaire car le Dockerfile fait
     # `COPY api/requirements.txt .` (chemins relatifs à la racine, cf. docker-compose.yml).
@@ -33,6 +37,7 @@ services:
     type: web
     runtime: docker
     plan: free
+    rootDir: rag-llm
     dockerfilePath: rag-llm/Dockerfile
     healthCheckPath: /health
     envVars:
