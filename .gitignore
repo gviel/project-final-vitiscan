@@ -1,0 +1,56 @@
+# Secrets / env files
+.env
+.env.*
+!.env.template
+!.env.*.template
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Conda
+.conda/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data / models / artifacts (large, fetched or generated)
+data/raw/
+data/processed/
+training/data/
+training/data-inrae/
+*.pth
+*.pkl
+mlruns/
+mlartifacts/
+
+# Fichiers de travail montés en volume dans les conteneurs qui en ont besoin (cache dataset
+# d'entraînement, cache de téléchargement des documents knowledge, etc.) - jamais committé, cf.
+# airflow/docker-compose.yml et docs/refactoring.md.
+work/
+
+# Airflow runtime
+airflow/logs/
+airflow/plugins/
+airflow/config/
+
+# Docker
+*.pid
+
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
