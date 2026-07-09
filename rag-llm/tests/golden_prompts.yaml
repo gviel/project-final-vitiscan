@@ -1,0 +1,103 @@
+# Golden prompts pour rag-llm (specs.md, Partie 1, étape 8 / Partie 2, DAG dag_rag_ingestion).
+#
+# Chaque cas appelle POST /solutions avec un cnn_label réel (ou un alias hérité pour vérifier la
+# compat ascendante) et vérifie :
+# - que la réponse n'est PAS le message de repli générique (sauf `expect_fallback: true`, réservé
+#   au cas volontairement supprimé "mites"), preuve que la fiche a bien été retrouvée dans Weaviate
+# - que le dosage renvoyé par l'API correspond exactement à un appel direct de compute_dosage()
+#   (même logique, chemin HTTP vs. import direct — détecte toute divergence de résolution du label)
+# - qu'au moins un des mots-clés attendus apparaît dans le diagnostic généré par le LLM (mots-clés
+#   choisis pour être robustes au phrasé exact du LLM : nom de maladie ou agent pathogène)
+#
+# Couvre les 3 branches de compute_dosage() : dose normale (la plupart), dose nulle ("sain"),
+# dose non configurée ("esca", pas de traitement curatif direct).
+
+cases:
+  - name: anthracnose
+    cnn_label: elsinoe_ampelina
+    mode: conventionnel
+    severity: moderee
+    area_m2: 3000
+    expect_configured: true
+    expect_keywords: ["anthracnose"]
+
+  - name: black_rot
+    cnn_label: guignardia_bidwellii
+    mode: conventionnel
+    severity: moderee
+    area_m2: 5000
+    expect_configured: true
+    expect_keywords: ["black rot", "pourriture noire"]
+
+  - name: mildiou_bio_forte
+    cnn_label: plasmopara_viticola
+    mode: bio
+    severity: forte
+    area_m2: 4000
+    expect_configured: true
+    expect_keywords: ["mildiou"]
+
+  - name: erinose_faible
+    cnn_label: colomerus_vitis
+    mode: conventionnel
+    severity: faible
+    area_m2: 1000
+    expect_configured: true
+    expect_keywords: ["erinose"]
+
+  - name: esca_pas_de_dose_curative
+    cnn_label: phaeomoniella_chlamydospora
+    mode: conventionnel
+    severity: forte
+    area_m2: 2000
+    expect_configured: false  # esca : dose_l_ha=None dans DOSAGE_RULES, pas de traitement curatif direct
+    expect_keywords: ["esca"]
+
+  - name: sain_aucun_traitement
+    cnn_label: sain
+    mode: conventionnel
+    severity: moderee
+    area_m2: 1000
+    expect_configured: true
+    expect_dose_zero: true
+    expect_keywords: ["aucun traitement", "pas de maladie", "aucune maladie", "sain"]
+
+  - name: oidium_bio
+    cnn_label: erysiphe_necator
+    mode: bio
+    severity: moderee
+    area_m2: 2500
+    expect_configured: true
+    expect_keywords: ["oidium"]
+
+  - name: brown_spot_kaggle
+    cnn_label: brown_spot
+    mode: conventionnel
+    severity: moderee
+    area_m2: 1500
+    expect_configured: true
+    expect_keywords: ["tache brune"]
+
+  - name: shot_hole_kaggle_bio_faible
+    cnn_label: shot_hole
+    mode: bio
+    severity: faible
+    area_m2: 1200
+    expect_configured: true
+    expect_keywords: ["criblee", "coryneum", "perforations"]
+
+  - name: alias_herite_black_rot_compat_ascendante
+    cnn_label: black_rot  # alias court hérité, doit se résoudre vers guignardia_bidwellii
+    mode: conventionnel
+    severity: moderee
+    area_m2: 5000
+    expect_configured: true
+    expect_keywords: ["black rot", "pourriture noire"]
+    expect_cnn_label_fr: "Pourriture noire de la vigne"
+
+  - name: mites_fiche_supprimee_fallback_propre
+    cnn_label: mites  # fiche volontairement supprimée (redondante avec erinose/colomerus_vitis)
+    mode: bio
+    severity: moderee
+    area_m2: 1000
+    expect_fallback: true

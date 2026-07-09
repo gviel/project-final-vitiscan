@@ -18,6 +18,7 @@ venv/
 *.egg-info/
 build/
 dist/
+.pytest_cache/
 
 # Conda
 .conda/

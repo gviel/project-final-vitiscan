@@ -1,0 +1,4 @@
+# Dépendances pour les tests golden prompts (tests/test_golden_prompts.py) uniquement — non
+# nécessaires à l'exécution de l'API elle-même, gardées séparées de requirements.txt.
+pytest
+pyyaml
