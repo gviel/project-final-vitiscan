@@ -1,0 +1,14 @@
+fastapi[standard]
+uvicorn
+pydantic
+python-multipart
+python-dotenv
+requests>=2.31.0,<3
+
+# Versions figées pour rester compatible avec le modèle entraîné et loggé sous mlflow==3.7.0
+mlflow==3.7.0
+torch==2.5.0
+torchvision==0.20.0
+pillow>=10.0.0
+boto3
+numpy==2.1.3
