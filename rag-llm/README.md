@@ -34,7 +34,7 @@ cp .env.template .env   # puis compléter (HF_API_TOKEN au minimum)
 pip install -r requirements.txt
 
 # Weaviate local pour dev :
-docker compose up -d weaviate
+docker-compose up -d weaviate
 
 # Ingestion des documents :
 python -m app.ingestion

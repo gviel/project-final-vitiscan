@@ -1,7 +1,8 @@
 # Stack locale complète : api (CNN) + rag-llm (RAG-LLM) + ui (Streamlit) + weaviate (local).
 # MLflow reste externe (déployé sur Hugging Face Spaces), non géré ici.
 #
-# Démarrage : docker compose up --build
+# Démarrage : docker-compose up --build (v1 legacy, seule disponible dans l'environnement de dev
+# de référence ; docker compose v2 fonctionne aussi si le plugin est présent)
 # (chaque service lit son .env dans son propre dossier ; copier les .env.template au préalable)
 #
 # Noms de conteneurs explicitement préfixés "vitiscan_" pour ne jamais entrer en collision avec
