@@ -1,0 +1,52 @@
+# Blueprint Render (Infrastructure as Code) pour api/ et rag-llm/.
+# ui/ est déployé séparément sur Streamlit Community Cloud (pas de service Docker Render) —
+# voir docs/deploiement-render-streamlit.md pour la procédure complète.
+#
+# Usage : Render Dashboard -> New -> Blueprint -> sélectionner ce dépôt -> Render détecte ce
+# fichier automatiquement. Les variables marquées `sync: false` seront demandées une seule fois,
+# à la création du Blueprint (valeurs à saisir manuellement, jamais committées).
+
+services:
+  - name: vitiscan-api
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: api/Dockerfile
+    # dockerContext non renseigné : défaut = racine du repo, nécessaire car le Dockerfile fait
+    # `COPY api/requirements.txt .` (chemins relatifs à la racine, cf. docker-compose.yml).
+    healthCheckPath: /health
+    envVars:
+      - key: MLFLOW_TRACKING_URI
+        value: https://gviel-mlflow37.hf.space
+      - key: MLFLOW_MODEL_ID
+        sync: false  # id du Logged Model MLflow à servir, cf. api/.env.template
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: eu-west-3
+      - key: AWS_REGION
+        value: eu-west-3
+
+  - name: vitiscan-rag-llm
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: rag-llm/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: HF_API_URL
+        value: https://router.huggingface.co/v1/chat/completions
+      - key: HF_API_TOKEN
+        sync: false
+      - key: HF_MODEL_ID
+        value: meta-llama/Meta-Llama-3-8B-Instruct
+      # Weaviate hébergé (Cloud ou toute instance externe persistante) — impératif en prod :
+      # pas de service "weaviate" Docker joignable par nom comme en local docker-compose, et
+      # l'auto-héberger sur Render (plan free, disque éphémère + mise en veille) ferait perdre la
+      # base à chaque redémarrage. Cf. docs/deploiement-render-streamlit.md.
+      - key: WEAVIATE_URL
+        sync: false
+      - key: WEAVIATE_API_KEY
+        sync: false
