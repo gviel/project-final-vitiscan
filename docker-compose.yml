@@ -1,0 +1,94 @@
+# Stack locale complète : api (CNN) + rag-llm (RAG-LLM) + ui (Streamlit) + weaviate (local).
+# MLflow reste externe (déployé sur Hugging Face Spaces), non géré ici.
+#
+# Démarrage : docker compose up --build
+# (chaque service lit son .env dans son propre dossier ; copier les .env.template au préalable)
+#
+# Noms de conteneurs explicitement préfixés "vitiscan_" pour ne jamais entrer en collision avec
+# d'autres stacks locales (ex: Fraud Detection, qui utilise le préfixe "fraud_"/"airflow_").
+# NB : pas de clé `name:` top-level ici (Compose Spec v2) car l'environnement de dev ne dispose
+# que de docker-compose v1 (legacy), qui ne la supporte pas.
+
+services:
+
+  weaviate:
+    image: semitechnologies/weaviate:1.27.4
+    container_name: vitiscan_weaviate
+    restart: unless-stopped
+    ports:
+      - "8081:8080"    # API REST (8080 déjà utilisé par la stack Airflow de Fraud Detection)
+      - "50051:50051"  # API gRPC (client v4)
+    environment:
+      QUERY_DEFAULTS_LIMIT: 20
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "none"
+      CLUSTER_HOSTNAME: "vitiscan-weaviate"
+    volumes:
+      - vitiscan_weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: vitiscan_api
+    env_file:
+      - api/.env
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4000/health || exit 1"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  rag-llm:
+    build:
+      context: .
+      dockerfile: rag-llm/Dockerfile
+    container_name: vitiscan_rag_llm
+    env_file:
+      - rag-llm/.env
+    environment:
+      # override : à l'intérieur du réseau docker-compose, weaviate est joignable par son nom de service
+      WEAVIATE_HOST: weaviate
+      WEAVIATE_PORT: 8080
+      WEAVIATE_GRPC_PORT: 50051
+    ports:
+      - "9000:9000"
+    depends_on:
+      weaviate:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/health || exit 1"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    container_name: vitiscan_ui
+    env_file:
+      - ui/.env
+    environment:
+      # override : à l'intérieur du réseau docker-compose, les API sont joignables par leur nom de service
+      API_DIAGNO: http://api:4000
+      API_SOLUTIONS: http://rag-llm:9000
+    ports:
+      - "8502:8501"    # 8501 déjà utilisé par le dashboard Fraud Detection
+    depends_on:
+      - api
+      - rag-llm
+    restart: unless-stopped
+
+volumes:
+  vitiscan_weaviate_data:
