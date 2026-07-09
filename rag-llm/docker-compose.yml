@@ -1,0 +1,22 @@
+# Stack minimale pour développer rag-llm/ isolément (juste Weaviate).
+# Pour la stack complète (api + ui + rag-llm + weaviate), voir le docker-compose.yml racine.
+
+services:
+  weaviate:
+    image: semitechnologies/weaviate:1.27.4
+    container_name: vitiscan_weaviate_dev
+    restart: unless-stopped
+    ports:
+      - "8081:8080"    # API REST
+      - "50051:50051"  # API gRPC (client v4)
+    environment:
+      QUERY_DEFAULTS_LIMIT: 20
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+      DEFAULT_VECTORIZER_MODULE: "none"
+      CLUSTER_HOSTNAME: "vitiscan-weaviate-dev"
+    volumes:
+      - vitiscan_weaviate_dev_data:/var/lib/weaviate
+
+volumes:
+  vitiscan_weaviate_dev_data:

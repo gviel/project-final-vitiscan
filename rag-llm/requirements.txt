@@ -1,0 +1,13 @@
+# Bornes basses alignées sur apache-airflow-core==3.2.2 (fastapi[standard-no-fastapi-cloud-cli]>=0.129.0,
+# uvicorn>=0.37.0) : rag-llm/requirements.txt est aussi installé dans l'image airflow/Dockerfile
+# (cf. dag_train_model), qui a besoin de son propre apiserver FastAPI (airflow.api_fastapi.app) -
+# un pin plus bas cassait son démarrage (ModuleNotFoundError: fastapi._compat.v2, via cadwyn).
+fastapi>=0.129.0,<1.0.0
+uvicorn>=0.37.0,<1.0.0
+pydantic>=2.8.0,<3.0.0
+python-dotenv
+weaviate-client>=4.18.0,<5.0.0
+sentence-transformers>=2.2.0
+python-frontmatter
+requests
+typing-extensions>=4.2.0
