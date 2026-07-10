@@ -819,6 +819,11 @@ projet, `VECTOR(384)`) : fonctionne sans limitation particulière.
   `Vitiscan_CNN_Resnet_INRAE_FINE_TUNING`.
 - Partie 2 du TODO (`specs.md`) : UI de labellisation, DAGs de ré-entraînement et de détection de
   drift.
-- **À vérifier plus tard** : que `training/notebooks/CNN_model_FT.ipynb` s'exécute bien en l'état
-  (de bout en bout, sans erreur) — pas encore testé dans cette session ; simple recoupement de
-  cohérence avec `train.py`, pas une exécution réelle.
+- ~~Vérifier que `training/notebooks/CNN_model_FT.ipynb` s'exécute bien en l'état~~ — fait : smoke
+  test dans un conteneur `python:3.11-slim` jetable, sur une copie temporaire du notebook (jamais
+  commitée) avec les cellules de rééquilibrage/split sautées (dataset `organized_data_inrae` déjà
+  présent) et `epochs=1` (au lieu de 25, pour rester rapide/léger). Exécution complète sans erreur
+  via `jupyter nbconvert --execute` : chargement du dataset, fine-tuning ResNet34, métriques,
+  logging MLflow (run `nebulous-snail-730`, experiment
+  `zzz_smoketest_notebook_verify_delete_me_FINE_TUNING`, à purger manuellement). Confirme que le
+  notebook fonctionne de bout en bout, pas seulement par recoupement statique avec `train.py`.
