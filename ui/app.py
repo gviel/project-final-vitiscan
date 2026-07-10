@@ -331,13 +331,13 @@ def main():
             if "data" in st.session_state.solutions:
                 d = st.session_state.solutions["data"]
 
-                with st.expander("### Résumé", width='stretch', expanded=True):
+                with st.expander("**Résumé**", width='stretch', expanded=True):
                     st.markdown(f"**Maladie détectée** : {DISEASE_TRANSLATION.get(d.get('cnn_label', 'N/A'), d.get('cnn_label', 'N/A'))}")
                     st.markdown(f"**Gravité** : {d.get('severity', '')}")
                     st.markdown(f"**Mode** : {d.get('mode', '')}")
                     st.markdown(f"**Saison** : {d.get('season', '')}")
 
-                with st.expander("### Actions de traitement", width='stretch', expanded=True):
+                with st.expander("**Actions de traitement**", width='stretch', expanded=True):
 
                     if "treatment_plan" in d and d["treatment_plan"]:
                         tp = d['treatment_plan']
@@ -356,19 +356,19 @@ def main():
                             if action:
                                 st.markdown(f"- {action}")
 
-                with st.expander("### Mesures préventives", width='stretch', expanded=True):
+                with st.expander("**Mesures préventives**", width='stretch', expanded=True):
                     if "preventive_actions" in d and d["preventive_actions"]:
                         for action in d["preventive_actions"]:
                             if action:
                                 st.markdown(f"- {action}")
 
-                with st.expander("### Avertissements", width='stretch', expanded=True):
+                with st.expander("**Avertissements**", width='stretch', expanded=True):
                     if "warnings" in d and d["warnings"]:
                         for w in d["warnings"]:
                             if w:
                                 st.markdown(f"- {w}")
                 if DEBUG:
-                    with st.expander("### DEBUG Raw LLM output", width='stretch', expanded=False):
+                    with st.expander("**DEBUG Raw LLM output**", width='stretch', expanded=False):
                         if "raw_llm_output" in d and d['raw_llm_output']:
                             st.write(d["raw_llm_output"])
 
