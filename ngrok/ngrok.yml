@@ -10,7 +10,7 @@ endpoints:
   # REST (port 8080 de weaviate, joignable par nom de service sur le réseau docker-compose) -
   # domaine fixe gratuit, ne change pas au redémarrage.
   - name: weaviate-rest
-    url: https://REPLACE-WITH-YOUR-DEV-DOMAIN.ngrok-free.dev
+    url: https://slinkier-sallowly-maura.ngrok-free.dev
     upstream:
       url: weaviate:8080
 

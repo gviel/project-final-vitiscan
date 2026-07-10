@@ -19,6 +19,30 @@ Un `render.yaml` à la racine du dépôt déclare `api` et `rag-llm` comme Bluep
 fichier : Streamlit Community Cloud ne consomme pas `render.yaml`, il déploie directement depuis
 `ui/app.py` par sa propre interface.
 
+## URLs déployées (test/prod)
+
+| Service | URL | Latence à froid (veille) | Latence à chaud |
+|---|---|---|---|
+| `vitiscan-api` (Render) | https://vitiscan-api.onrender.com | ~150s (recharge du modèle CNN depuis MLflow, torch+mlflow) | ~0.6s |
+| `vitiscan-rag-llm` (Render) | https://vitiscan-rag-llm.onrender.com | non mesuré à froid (déjà chaud lors du 1er test) | ~0.6s |
+| Weaviate REST (ngrok, local) | https://slinkier-sallowly-maura.ngrok-free.dev | domaine fixe, ne change pas | — |
+| Weaviate gRPC (ngrok, local) | ⚠️ non fonctionnel actuellement (cf. section "Blocage ngrok TCP" ci-dessous) | adresse aléatoire à chaque redémarrage du tunnel | — |
+| `ui` (Streamlit Community Cloud) | pas encore déployé | — | — |
+
+**Mise en veille Render (plan free)** : après **15 minutes** sans requête entrante (confirmé
+[render.com/docs/free](https://render.com/docs/free)), le service se met en veille. La requête
+suivante le réveille automatiquement, avec la latence à froid indiquée ci-dessus.
+
+## ⚠️ Blocage ngrok TCP (gRPC) en cours d'investigation
+
+Le tunnel TCP ngrok (nécessaire pour le gRPC de Weaviate, cf. `docs/simulation-prod-ngrok.md`) se
+crée sans erreur côté agent local, mais **ne route pas réellement le trafic externe** : connexion
+refusée aussi bien en local qu'depuis Render, alors que l'IP de l'edge ngrok répond normalement sur
+le port 443. Cause exacte non confirmée (limitation du plan gratuit non documentée clairement,
+délai de propagation de la vérification carte, ou autre). Conséquence : `/solutions` sur
+`vitiscan-rag-llm` renvoie une erreur 500 tant que ce point n'est pas résolu — `/health` fonctionne
+normalement (ne dépend pas de Weaviate).
+
 ## Pourquoi Weaviate n'est pas sur Render
 
 `rag-llm/README.md` (section "Weaviate en production") documente déjà que le plan gratuit Weaviate
