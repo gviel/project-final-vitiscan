@@ -2,6 +2,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Limite les pools de threads BLAS/OpenMP/tokenizers : par défaut, torch/numpy dimensionnent ces
+# pools sur le nombre de CPU visibles, largement disproportionné par rapport au quota CPU réel
+# d'une instance Render gratuite - chaque thread alloue ses propres buffers, ce qui a contribué à
+# un OOM en prod (conteneur tué en pleine requête /solutions, cf. docs/refactoring.md).
+ENV OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    TOKENIZERS_PARALLELISM=false
+
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 

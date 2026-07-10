@@ -8,6 +8,12 @@ pydantic>=2.8.0,<3.0.0
 python-dotenv
 psycopg[binary,pool]>=3.2.3,<4.0.0
 pgvector>=0.3.6,<1.0.0
+# torch CPU-only (comme api/requirements.txt) : sans ce pin, pip installe par défaut le build CUDA
+# complet (~2 Go, tout un chapelet de paquets nvidia-*) - juste pour encoder des embeddings sur
+# CPU en prod (Render). training/requirements.txt installe séparément torch==2.5.0 (GPU) après
+# celui-ci dans airflow/Dockerfile, donc ce pin n'affecte pas l'entraînement CNN.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.0+cpu
 sentence-transformers>=2.2.0
 python-frontmatter
 requests
