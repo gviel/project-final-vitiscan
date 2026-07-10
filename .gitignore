@@ -4,6 +4,10 @@
 !.env.template
 !.env.*.template
 
+# MCP (contient une clé API Neon en clair, cf. Project_02_Kayak/.mcp.json)
+.mcp.json
+!.mcp.json.template
+
 # Vim
 *.swp
 *.swo
