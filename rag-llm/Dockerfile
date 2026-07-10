@@ -5,12 +5,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY rag-llm/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-COPY rag-llm/app ./app
-COPY rag-llm/data ./data
-COPY rag-llm/db ./db
+COPY app ./app
+COPY data ./data
+COPY db ./db
 
 EXPOSE 9000
 # Lit $PORT si fourni par la plateforme d'hébergement (ex: Render), sinon 9000 par défaut (local,

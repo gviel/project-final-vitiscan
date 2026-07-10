@@ -18,10 +18,10 @@ pip install -r requirements.txt
 python app.py
 ```
 
-## Docker (depuis la racine du dépôt, le contexte de build est la racine)
+## Docker (contexte de build = api/, cf. render.yaml)
 
 ```bash
-docker build -f api/Dockerfile -t vitiscan-api .
+docker build -t vitiscan-api api/
 docker run --env-file api/.env -p 4000:4000 vitiscan-api
 ```
 

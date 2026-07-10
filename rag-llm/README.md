@@ -46,10 +46,10 @@ python -m app.ingestion
 uvicorn app.main:app --reload --port 9000
 ```
 
-## Docker (depuis la racine du dépôt)
+## Docker (contexte de build = rag-llm/, cf. render.yaml)
 
 ```bash
-docker build -f rag-llm/Dockerfile -t vitiscan-rag-llm .
+docker build -t vitiscan-rag-llm rag-llm/
 docker run --env-file rag-llm/.env.dev -p 9000:9000 vitiscan-rag-llm
 ```
 

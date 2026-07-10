@@ -12,12 +12,14 @@ services:
     runtime: docker
     plan: free
     rootDir: api
-    # rootDir ne limite QUE le déclenchement de l'auto-deploy (un push touchant seulement ui/ ou
-    # training/ ne redéploiera pas ce service) - dockerfilePath/dockerContext restent résolus
-    # depuis la racine du repo, indépendamment de rootDir (confirmé doc officielle Render).
-    dockerfilePath: api/Dockerfile
-    # dockerContext non renseigné : défaut = racine du repo, nécessaire car le Dockerfile fait
-    # `COPY api/requirements.txt .` (chemins relatifs à la racine, cf. docker-compose.yml).
+    # rootDir scope l'auto-deploy (un push touchant seulement ui/ ou training/ ne redéploiera pas
+    # ce service) MAIS rend aussi dockerfilePath/dockerContext relatifs à rootDir, pas à la racine
+    # du repo (doc officielle Render : "you need to update dockerfilePath and dockerContext ... to
+    # be relative to the new root directory") - contrairement à ce qu'on pensait initialement.
+    # `dockerfilePath: api/Dockerfile` faisait résoudre Render sur api/api/Dockerfile (inexistant)
+    # -> échec de déploiement ("lstat api/api: no such file or directory").
+    dockerfilePath: Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - key: MLFLOW_TRACKING_URI
@@ -38,7 +40,10 @@ services:
     runtime: docker
     plan: free
     rootDir: rag-llm
-    dockerfilePath: rag-llm/Dockerfile
+    # cf. commentaire du service vitiscan-api ci-dessus : dockerfilePath/dockerContext relatifs à
+    # rootDir (rag-llm), pas à la racine du repo.
+    dockerfilePath: Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - key: HF_API_URL

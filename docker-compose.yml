@@ -39,8 +39,12 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: api/Dockerfile
+      # context = api/ (pas la racine du repo) : même convention que render.yaml (rootDir: api),
+      # les COPY du Dockerfile sont relatifs à api/ depuis la correction du bug de déploiement
+      # Render ("lstat api/api: no such file or directory" - dockerfilePath/dockerContext sont
+      # relatifs à rootDir, pas à la racine du repo, cf. commentaire dans render.yaml).
+      context: ./api
+      dockerfile: Dockerfile
     container_name: vitiscan_api
     env_file:
       - api/.env
@@ -55,8 +59,9 @@ services:
 
   rag-llm:
     build:
-      context: .
-      dockerfile: rag-llm/Dockerfile
+      # context = rag-llm/ : cf. commentaire du service "api" ci-dessus (même convention render.yaml).
+      context: ./rag-llm
+      dockerfile: Dockerfile
     container_name: vitiscan_rag_llm
     env_file:
       - rag-llm/.env.dev
