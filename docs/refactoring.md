@@ -797,6 +797,46 @@ il faille le réactiver pour un autre usage. Testé en conditions réelles sur u
 implémentation (`CREATE EXTENSION vector`, index HNSW, opérateur `<=>` à la dimension réelle du
 projet, `VECTOR(384)`) : fonctionne sans limitation particulière.
 
+## Déploiement Render réel : 2 bugs trouvés et corrigés (rootDir + OOM rag-llm)
+
+**`rootDir` casse `dockerfilePath`/`dockerContext`** — Le premier déploiement post-migration a
+échoué (`invalid local: resolve : lstat /opt/render/project/src/api/api: no such file or
+directory`). Cause : `render.yaml` définit `rootDir: api` (resp. `rag-llm`) pour scoper
+l'auto-deploy par service, mais contrairement à ce qui était supposé au moment d'introduire ce
+champ (commit `7ac921d`), la doc officielle Render est explicite : quand `rootDir` est défini,
+`dockerfilePath`/`dockerContext` deviennent relatifs à `rootDir`, pas à la racine du repo.
+`dockerfilePath: api/Dockerfile` faisait donc résoudre Render sur `api/api/Dockerfile`
+(inexistant). Correctif : `dockerfilePath: Dockerfile` + `dockerContext: .` (relatifs à
+`rootDir`), et les 2 `Dockerfile` + `docker-compose.yml` alignés pour utiliser le dossier du
+service comme contexte de build partout (`COPY` sans préfixe `api/`/`rag-llm/`) plutôt que la
+racine du repo - un seul `Dockerfile` par service, valable en local et sur Render.
+
+**OOM `rag-llm` en prod (torch CUDA involontaire)** — Une fois le rootDir corrigé, `vitiscan-api`
+tournait, mais `vitiscan-rag-llm` crashait (process tué, `/health` aussi en échec juste après,
+avant de récupérer seul) systématiquement au premier appel `/solutions`. Fausse piste initiale :
+quota de bande passante Render dépassé (écarté, l'utilisateur n'avait pas accès aux métriques
+CPU/RAM sans plan payant). Cause réelle : **`rag-llm/requirements.txt` n'installait pas
+explicitement torch** — `sentence-transformers` (utilisé dans `app/vector_store.py` pour encoder
+les embeddings de la recherche RAG) est construit sur PyTorch, qui est donc une dépendance
+transitive cachée, pas un ajout arbitraire. Sans contrainte, `pip` installait par défaut le build
+PyPI complet avec support CUDA (~2 Go, tout un chapelet de paquets `nvidia-*`), totalement inutile
+sur une instance Render CPU-only, et probablement la cause principale du dépassement des 512 Mo
+de RAM du plan gratuit. Correctifs :
+- `torch==2.5.0+cpu` (même convention que `api/requirements.txt`, qui le faisait déjà) — image
+  5.48 Go -> 1.42 Go. `training/requirements.txt` installe séparément `torch==2.5.0` (build GPU
+  normal) après celui-ci dans `airflow/Dockerfile`, donc ce pin n'affecte pas l'entraînement CNN.
+- `OMP_NUM_THREADS=1` / `MKL_NUM_THREADS=1` / `OPENBLAS_NUM_THREADS=1` / `NUMEXPR_NUM_THREADS=1`
+  dans le `Dockerfile` : évite que torch/numpy dimensionnent leurs pools de threads BLAS sur le
+  nombre de CPU visibles, disproportionné par rapport au quota CPU réel d'une instance gratuite.
+- Préchargement du modèle d'embedding au démarrage (`lifespan`, arrière-plan via
+  `run_in_executor`, même pattern que `api/app.py` pour le modèle CNN) plutôt qu'au premier appel
+  RAG (lazy loading) — objective le pic mémoire au déploiement plutôt qu'en pleine requête
+  utilisateur.
+
+Vérifié en local sous contrainte mémoire équivalente (`docker run --memory=512m`) : `/solutions`
+répond 200 en ~3.5s avec un pic mémoire stable à ~354 Mo (69%), contre un crash systématique avant
+ce correctif.
+
 ## Reste à faire (hors scope de cette passe)
 
 - ~~Étape 8 : tests "golden prompts" (yaml maladies/réponses attendues) pour `rag-llm/`~~ — fait
