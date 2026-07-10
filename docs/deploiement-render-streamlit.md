@@ -27,7 +27,7 @@ fichier : Streamlit Community Cloud ne consomme pas `render.yaml`, il déploie d
 | `vitiscan-rag-llm` (Render) | https://vitiscan-rag-llm.onrender.com | non mesuré à froid (déjà chaud lors du 1er test) | ~0.6s |
 | Weaviate REST (ngrok, local) | https://slinkier-sallowly-maura.ngrok-free.dev | domaine fixe, ne change pas | — |
 | Weaviate gRPC (ngrok, local) | ⚠️ non fonctionnel actuellement (cf. section "Blocage ngrok TCP" ci-dessous) | adresse aléatoire à chaque redémarrage du tunnel | — |
-| `ui` (Streamlit Community Cloud) | pas encore déployé | — | — |
+| `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ | — | — |
 
 **Mise en veille Render (plan free)** : après **15 minutes** sans requête entrante (confirmé
 [render.com/docs/free](https://render.com/docs/free)), le service se met en veille. La requête
