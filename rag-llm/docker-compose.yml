@@ -10,13 +10,15 @@ services:
     environment:
       POSTGRES_USER: vitiscan
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}"
-      POSTGRES_DB: vitiscan_knowledge
+      POSTGRES_DB: vitiscan-rag-db-dev
     ports:
       - "5433:5432"
     volumes:
-      - vitiscan_postgres_dev_data:/var/lib/postgresql/data
+      # pg18+ : les images postgres attendent un mount sur /var/lib/postgresql (pas .../data),
+      # cf. https://github.com/docker-library/postgres/pull/1259.
+      - vitiscan_postgres_dev_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan_knowledge"]
+      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan-rag-db-dev"]
       interval: 10s
       retries: 5
       start_period: 10s

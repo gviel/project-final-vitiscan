@@ -31,7 +31,9 @@ pour l'instant (cf. specs.md).
 ## Local (sans Docker)
 
 ```bash
-cp .env.template .env   # puis compléter (HF_API_TOKEN au minimum)
+cp .env.template .env.dev   # puis compléter (HF_API_TOKEN au minimum). Même convention que
+                            # Project_03_Fraud_Detection : .env.dev/.env.test/.env.prod,
+                            # sélectionné par APP_ENV (défaut "dev"), cf. app/vector_store.py.
 pip install -r requirements.txt
 
 # Postgres/pgvector local pour dev :
@@ -48,7 +50,7 @@ uvicorn app.main:app --reload --port 9000
 
 ```bash
 docker build -f rag-llm/Dockerfile -t vitiscan-rag-llm .
-docker run --env-file rag-llm/.env -p 9000:9000 vitiscan-rag-llm
+docker run --env-file rag-llm/.env.dev -p 9000:9000 vitiscan-rag-llm
 ```
 
 Voir le `docker-compose.yml` racine pour lancer l'ensemble de la stack (api + ui + rag-llm + postgres).

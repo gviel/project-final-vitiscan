@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Dict, Optional, Any
 from contextlib import contextmanager
 
@@ -8,7 +9,12 @@ from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
-load_dotenv()
+# APP_ENV choisit le fichier d'environnement (rag-llm/.env.dev|.env.test|.env.prod, cf.
+# .env.template) - même convention que Project_03_Fraud_Detection/airflow/start.sh. En Docker,
+# les variables sont déjà injectées par docker-compose (env_file/environment), donc ce
+# load_dotenv() est surtout utile pour lancer l'app/les scripts directement depuis l'hôte.
+APP_ENV = os.getenv("APP_ENV", "dev")
+load_dotenv(Path(__file__).resolve().parents[1] / f".env.{APP_ENV}")
 
 TABLE_NAME = "vitiscan_knowledge"
 
@@ -30,28 +36,24 @@ def get_embedder() -> SentenceTransformer:
 @contextmanager
 def db_client():
     """
-    2 modes de connexion, dans cet ordre de priorité :
-    1. DATABASE_URL défini (Neon - branche test/prod/dev, ou toute URL postgresql://... complète)
-       -> utilisé tel quel. Privilégier l'URL "pooled" fournie par Neon (hôte suffixé -pooler),
-       ce module ouvrant une connexion courte par requête HTTP.
-    2. Sinon -> connexion locale via PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE (alignée sur le
-       service postgres du docker-compose local).
+    Connexion unique via DATABASE_URL (chaîne postgresql://... complète), quel que soit
+    l'environnement (APP_ENV=dev -> postgres local docker-compose, test/prod -> branche Neon
+    correspondante, cf. .env.dev/.env.test/.env.prod). Privilégier l'URL "pooled" fournie par
+    Neon (hôte suffixé -pooler) sur test/prod, ce module ouvrant une connexion courte par requête.
     """
     database_url = (os.getenv("DATABASE_URL") or "").strip()
-
-    if not database_url and (os.getenv("HF_SPACE_ID") or os.getenv("SPACE_ID") or os.getenv("K_SERVICE")):
-        raise RuntimeError("DATABASE_URL n'est pas configuré en environnement déployé.")
-
-    if database_url:
-        conn = psycopg.connect(database_url)
-    else:
-        conn = psycopg.connect(
-            host=os.getenv("PGHOST", "localhost"),
-            port=int(os.getenv("PGPORT", "5433")),
-            user=os.getenv("PGUSER", "vitiscan"),
-            password=os.getenv("PGPASSWORD", "vitiscan"),
-            dbname=os.getenv("PGDATABASE", "vitiscan_knowledge"),
+    if not database_url:
+        raise RuntimeError(
+            f"DATABASE_URL n'est pas configuré (APP_ENV={APP_ENV!r}) - "
+            f"cf. rag-llm/.env.{APP_ENV} ou rag-llm/.env.template."
         )
+
+    conn = psycopg.connect(database_url)
+    # Idempotent et bon marché : garantit que le type "vector" existe avant register_vector(),
+    # qui échoue sinon sur une base neuve (register_vector interroge pg_type avant que
+    # ensure_schema() n'ait eu la main - constaté en testant l'ingestion sur postgres local frais).
+    conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    conn.commit()
     register_vector(conn)
 
     try:

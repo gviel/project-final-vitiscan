@@ -21,13 +21,18 @@ services:
     environment:
       POSTGRES_USER: vitiscan
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}"
-      POSTGRES_DB: vitiscan_knowledge
+      # "vitiscan-rag-db-dev" en local, "vitiscan-rag-db" sur les branches Neon test/prod (cf.
+      # rag-llm/.env.template) - dev suffixé pour ne pas confondre avec les 2 branches Neon.
+      POSTGRES_DB: vitiscan-rag-db-dev
     ports:
       - "5433:5432"   # 5432 déjà pris par vitiscan_airflow_db côté hôte si les 2 stacks tournent ensemble
     volumes:
-      - vitiscan_postgres_data:/var/lib/postgresql/data
+      # pg18+ : les images postgres attendent un mount sur /var/lib/postgresql (pas .../data),
+      # cf. https://github.com/docker-library/postgres/pull/1259 - testé en conditions réelles,
+      # le montage sur .../data fait planter l'initdb en boucle sur pg18.
+      - vitiscan_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan_knowledge"]
+      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan-rag-db-dev"]
       interval: 10s
       retries: 5
       start_period: 10s
@@ -54,10 +59,11 @@ services:
       dockerfile: rag-llm/Dockerfile
     container_name: vitiscan_rag_llm
     env_file:
-      - rag-llm/.env
+      - rag-llm/.env.dev
     environment:
+      APP_ENV: dev
       # override : à l'intérieur du réseau docker-compose, postgres est joignable par son nom de service
-      DATABASE_URL: "postgresql://vitiscan:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}@postgres:5432/vitiscan_knowledge"
+      DATABASE_URL: "postgresql://vitiscan:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}@postgres:5432/vitiscan-rag-db-dev"
     ports:
       - "9000:9000"
     depends_on:

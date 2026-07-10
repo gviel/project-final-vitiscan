@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r re
 
 COPY rag-llm/app ./app
 COPY rag-llm/data ./data
+COPY rag-llm/db ./db
 
 EXPOSE 9000
 # Lit $PORT si fourni par la plateforme d'hébergement (ex: Render), sinon 9000 par défaut (local,
