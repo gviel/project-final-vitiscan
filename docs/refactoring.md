@@ -338,8 +338,53 @@ passe) : pas de Weaviate auto-hébergé sur Render (plan gratuit = disque éphé
 pire que Weaviate Cloud gratuit) — `WEAVIATE_URL`/`WEAVIATE_API_KEY` doivent pointer vers une
 instance externe persistante, à la charge de l'utilisateur.
 
-**Non testé** : déploiement réel sur Render/Streamlit Cloud (pas de compte configuré dans cette
-session) — seule la mécanique locale ($PORT, YAML du Blueprint) a pu être vérifiée.
+~~**Non testé** : déploiement réel sur Render/Streamlit Cloud~~ — fait (session suivante, cf.
+ci-dessous) : les 2 services Render et `ui` sur Streamlit Community Cloud ont été réellement créés
+et testés.
+
+### 9bis. Déploiement réel Render + Streamlit — bug de production trouvé et corrigé
+
+**Déployé et testé réellement** : `vitiscan-api` et `vitiscan-rag-llm` créés via le Blueprint
+`render.yaml` sur Render, `ui` sur Streamlit Community Cloud
+(`share.streamlit.io`). `GET /health` et `POST /diagno` vérifiés en conditions réelles sur
+`vitiscan-api` (photo réelle envoyée à travers Streamlit Cloud → Render).
+
+**Bug de prod trouvé** : `vitiscan-api` tombait en échec de health check Render
+(`HTTP health check failed (timed out after 5 seconds)`), avec redémarrages en boucle. Deux causes
+cumulées, diagnostiquées en conditions réelles (pas en relisant le code) :
+1. `api/app.py::lifespan` chargeait le modèle CNN **de façon bloquante** au démarrage (~150s
+   mesuré : torch + téléchargement MLflow) — l'app ne répondait à *aucune* requête, y compris
+   `/health`, pendant tout ce temps. Render redémarre une instance après 60s d'échecs consécutifs
+   du health check → le chargement ne finissait jamais avant d'être interrompu.
+2. `api/requirements.txt` épinglait `torch==2.5.0` sans préciser l'index CPU-only : pip installait
+   par défaut la build **CUDA** (confirmé par un warning en prod :
+   `Stored model version '2.5.1' does not match installed PyTorch version '2.5.0+cu124'`) alors que
+   `DEVICE = "cpu"` partout dans le code — image plus lourde, import plus lent, aggrave le problème
+   1 sans être la cause racine.
+
+**Corrigé** :
+- `api/app.py` : chargement du modèle déplacé dans un thread d'arrière-plan
+  (`asyncio.get_event_loop().run_in_executor(...)`) au lieu de bloquer le `lifespan` — `/health`
+  répond immédiatement (`model_loaded: false` puis `true` une fois prêt), satisfait le health check
+  Render dès le premier appel.
+- `api/requirements.txt` : `torch==2.5.0+cpu` / `torchvision==0.20.0+cpu` via
+  `--extra-index-url https://download.pytorch.org/whl/cpu`.
+- `training/train.py` : `model.to("cpu")` ajouté juste avant `mlflow.pytorch.log_model()` (défense
+  en profondeur — l'artifact sauvegardé est directement portable, sans dépendre uniquement de
+  `map_location` au chargement).
+
+**Vérifié que le problème CUDA/CPU était déjà globalement bien géré par ailleurs** (question posée
+en cours de session, méfiance justifiée par une mésaventure passée sur HF) :
+`api/app.py::_load_model()` chargeait déjà avec `map_location=DEVICE` (`"cpu"`), et
+`training/train.py` loggait déjà `training_device` (`str(device)`, cf. `get_device()` dans
+`model_registry.py` : CUDA > MPS > CPU) comme paramètre MLflow visible dans l'UI — seul le nouveau
+`model.to("cpu")` avant logging manquait, ajouté ci-dessus en bonus.
+
+**Testé réellement après correctif** (local, avant redéploiement Render) : conteneur `api`
+recréé → `/health` répond en ~1ms avec `model_loaded:false` dès le démarrage, bascule à `true` une
+fois le chargement terminé en arrière-plan, `/diagno` renvoie toujours la même prédiction qu'avant
+le fix (`guignardia_bidwellii`, 98.9% — aucune régression de précision liée au passage torch
+CPU-only, cohérent puisque l'inférence tournait déjà sur CPU de toute façon).
 
 ## ⚠️ Sécurité
 
