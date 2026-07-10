@@ -837,12 +837,38 @@ Vérifié en local sous contrainte mémoire équivalente (`docker run --memory=5
 répond 200 en ~3.5s avec un pic mémoire stable à ~354 Mo (69%), contre un crash systématique avant
 ce correctif.
 
+## Golden prompts contre la vraie API déployée (`vitiscan-rag-llm-test`)
+
+`dags/tasks/rag_ingestion.py::run_golden_prompts_gate` appelait jusqu'ici `generate_treatment_advice()`
+**directement en process** dans le conteneur Airflow (import Python de `app.rag_pipeline`, pas de
+HTTP) - cette porte vérifiait donc que les données ingérées dans la branche Neon de test étaient
+correctes, mais ne testait jamais le service `rag-llm` **réellement déployé** (Dockerfile,
+variables d'environnement Render, limites du plan gratuit...). Or les 2 bugs de déploiement décrits
+juste au-dessus (`rootDir` cassant `dockerfilePath`/`dockerContext`, OOM torch CUDA involontaire)
+sont justement le genre de problème qu'un test en process ne peut pas détecter - ils ne sont
+apparus qu'en conditions réelles sur Render.
+
+Correctif : un 3ᵉ service Render `vitiscan-rag-llm-test` (cf. `render.yaml`), même image que
+`vitiscan-rag-llm` mais branché sur la branche Neon **test** (`DATABASE_URL`). La porte de qualité
+interroge désormais ce service en HTTP réel (`RAG_LLM_TEST_URL`, cf. `airflow/.env.template`) via
+`POST /solutions`, avec une attente préalable sur `/health` (`_wait_for_rag_llm_test_ready`, jusqu'à
+180s) pour absorber la mise en veille du plan gratuit Render (15 min d'inactivité, ~30-90s de
+réveil, cf. `docs/deploiement-render-streamlit.md`). La logique d'évaluation des cas
+(`app/golden_prompts.py`) est inchangée - déjà conçue pour être appelée aussi bien en HTTP (pytest
+local, `tests/test_golden_prompts.py`) qu'en process, elle l'est maintenant en HTTP dans les deux
+cas. Effet de bord : les identifiants `HF_API_TOKEN` n'ont plus besoin de vivre dans le conteneur
+Airflow (retirés de `airflow/docker-compose.yml`/`airflow/.env.template`), puisque l'appel LLM se
+fait désormais côté service Render `vitiscan-rag-llm-test`, qui a ses propres identifiants.
+
 ## Reste à faire (hors scope de cette passe)
 
 - ~~Étape 8 : tests "golden prompts" (yaml maladies/réponses attendues) pour `rag-llm/`~~ — fait
   (cf. section 8 ci-dessus, `rag-llm/tests/`), exécuté réellement (10 passed, 1 skipped quota HF).
-- Brancher les tests golden prompts comme porte de promotion dans `dags/tasks/rag_ingestion.py`
-  (cf. section 8 ci-dessus) — actuellement le DAG ne se base que sur le succès de l'ingestion test.
+- ~~Brancher les tests golden prompts comme porte de promotion dans `dags/tasks/rag_ingestion.py`~~
+  — fait, d'abord en process puis en HTTP réel contre `vitiscan-rag-llm-test` (cf. section "Golden
+  prompts contre la vraie API déployée" ci-dessus). Reste à faire : créer le service Render
+  `vitiscan-rag-llm-test` (pas de compte Render dans cette session, cf. étapes manuelles listées
+  dans cette même section) et déclencher le DAG en conditions réelles pour valider de bout en bout.
 - ~~Étape 9 : documentation de déploiement Render (api, rag-llm) et Streamlit Community (ui)~~ —
   fait (cf. section 9 ci-dessus, `docs/deploiement-render-streamlit.md` + `render.yaml`). Reste à
   faire : le déploiement réel (pas de compte Render/Streamlit Cloud dans cette session), et

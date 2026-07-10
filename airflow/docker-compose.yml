@@ -53,13 +53,12 @@ x-airflow-common:
     # natif Neon) - remplacent les 2 instances Weaviate test/prod.
     DATABASE_URL_TEST: "${DATABASE_URL_TEST:?DATABASE_URL_TEST manquant, cf. .env.template}"
     DATABASE_URL_PROD: "${DATABASE_URL_PROD:?DATABASE_URL_PROD manquant, cf. .env.template}"
+    # URL Render du service vitiscan-rag-llm-test (cf. render.yaml) : golden_prompts_gate y rejoue
+    # les golden prompts en HTTP réel (branche Neon test) avant de promouvoir vers la prod - teste
+    # aussi le service réellement déployé, pas seulement les données (cf.
+    # dags/tasks/rag_ingestion.py::run_golden_prompts_gate).
+    RAG_LLM_TEST_URL: "${RAG_LLM_TEST_URL:?RAG_LLM_TEST_URL manquant, cf. .env.template}"
     DAG_RAG_INGESTION_CRON: "${DAG_RAG_INGESTION_CRON:-0 * * * *}"
-    # Optionnel : sans HF_API_TOKEN, la porte de qualité golden_prompts_gate fonctionne quand même
-    # (résolution du nommage + dosage vérifiés), mais la vérification des mots-clés du diagnostic
-    # LLM est skip plutôt que vérifiée (cf. app/golden_prompts.py::GoldenPromptSkipped).
-    HF_API_URL: "${HF_API_URL:-https://router.huggingface.co/v1/chat/completions}"
-    HF_API_TOKEN: "${HF_API_TOKEN:-}"
-    HF_MODEL_ID: "${HF_MODEL_ID:-meta-llama/Meta-Llama-3-8B-Instruct}"
     AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
     AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
     AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-eu-west-3}"

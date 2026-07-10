@@ -11,14 +11,16 @@ de conflit de dépendances à isoler ici, contrairement à l'entraînement du mo
 import os
 import shutil
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
+import requests
 
 from config import (
     AWS_DEFAULT_REGION, DATABASE_URL_PROD, DATABASE_URL_TEST, LAST_INGESTED_VAR, RAG_LLM_DIR,
-    RAG_S3_BUCKET, RAG_S3_PREFIX, WORK_DIR,
+    RAG_LLM_TEST_URL, RAG_S3_BUCKET, RAG_S3_PREFIX, WORK_DIR,
 )
 
 sys.path.insert(0, str(RAG_LLM_DIR))
@@ -102,6 +104,26 @@ def download_and_ingest_test(**context) -> str:
     return str(work_dir)
 
 
+def _wait_for_rag_llm_test_ready(url: str, timeout: int = 180, interval: int = 5) -> None:
+    """
+    Poll GET {url}/health jusqu'à succès ou timeout. Le service Render vitiscan-rag-llm-test est
+    sur le plan free : après 15 min sans requête, il se met en veille et met jusqu'à ~30-90s à se
+    réveiller (cf. docs/deploiement-render-streamlit.md) - sans cette attente, le premier appel
+    /solutions échouerait pour une raison purement infra, pas un vrai échec de golden prompt.
+    """
+    deadline = time.monotonic() + timeout
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            resp = requests.get(f"{url}/health", timeout=10)
+            resp.raise_for_status()
+            return
+        except Exception as exc:
+            last_error = exc
+            time.sleep(interval)
+    raise RuntimeError(f"vitiscan-rag-llm-test ({url}) ne répond pas sur /health après {timeout}s : {last_error}")
+
+
 def run_golden_prompts_gate(**context) -> None:
     """
     Porte de qualité entre l'ingestion test et la promotion en prod (specs.md : "fait des tests
@@ -109,10 +131,13 @@ def run_golden_prompts_gate(**context) -> None:
     vector db de prod" — jusqu'ici seul le succès technique de l'ingestion faisait foi, cf.
     docs/refactoring.md section 8).
 
-    Rejoue rag-llm/tests/golden_prompts.yaml directement en process contre la branche Neon de test
-    qui vient d'être peuplée par download_and_ingest_test (même approche que _run_ingestion : pas
-    besoin d'un serveur HTTP rag-llm démarré dans le conteneur Airflow, on importe et on appelle
-    directement generate_treatment_advice()).
+    Rejoue rag-llm/tests/golden_prompts.yaml en HTTP réel contre le service Render
+    vitiscan-rag-llm-test (RAG_LLM_TEST_URL, cf. render.yaml et dags/config.py), qui pointe sur la
+    branche Neon de test qui vient d'être peuplée par download_and_ingest_test. Contrairement à un
+    appel en process de generate_treatment_advice(), ceci teste aussi le service réellement
+    déployé (Dockerfile, variables d'env Render, limites du plan free...) - les deux bugs de
+    déploiement déjà rencontrés (rootDir cassant dockerfilePath/dockerContext, OOM torch CUDA
+    involontaire, cf. docs/refactoring.md) n'auraient pas été détectés par un test en process.
 
     Toute panne réelle (cf. app.golden_prompts.GoldenPromptFailure) fait échouer cette tâche, ce
     qui bloque ingest_prod (dépendance de tâche) — les documents ne sont ingérés en prod que si
@@ -120,25 +145,26 @@ def run_golden_prompts_gate(**context) -> None:
     le LLM externe est indisponible, hors de portée de cette porte qui vérifie la résolution du
     nommage/dosage, pas la disponibilité du LLM).
     """
-    os.environ["DATABASE_URL"] = DATABASE_URL_TEST
+    if not RAG_LLM_TEST_URL:
+        raise RuntimeError("RAG_LLM_TEST_URL manquant, cf. airflow/.env.template")
 
-    from app.golden_prompts import GoldenPromptFailure, GoldenPromptSkipped, build_payload, evaluate_case, load_cases
-    from app.rag_pipeline import generate_treatment_advice
+    from app.golden_prompts import GoldenPromptSkipped, build_payload, evaluate_case, load_cases
+
+    _wait_for_rag_llm_test_ready(RAG_LLM_TEST_URL)
 
     cases = load_cases()
     n_ok, skipped, failures = 0, [], []
 
     for case in cases:
         try:
-            data = generate_treatment_advice(build_payload(case))
-            evaluate_case(data, case)
+            resp = requests.post(f"{RAG_LLM_TEST_URL}/solutions", json=build_payload(case), timeout=90)
+            resp.raise_for_status()
+            evaluate_case(resp.json()["data"], case)
             n_ok += 1
         except GoldenPromptSkipped as exc:
             skipped.append(f"{case['name']}: {exc}")
-        except GoldenPromptFailure as exc:
+        except Exception as exc:  # GoldenPromptFailure, erreur HTTP, base injoignable... = échec
             failures.append(f"{case['name']}: {exc}")
-        except Exception as exc:  # erreur inattendue (ex: base injoignable) - traitée comme un échec
-            failures.append(f"{case['name']}: erreur inattendue: {exc}")
 
     print(f"[rag_ingestion] Golden prompts : {n_ok} OK, {len(skipped)} skip, {len(failures)} échec(s) sur {len(cases)} cas.")
     for s in skipped:

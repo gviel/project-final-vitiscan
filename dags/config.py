@@ -25,6 +25,11 @@ RAG_LLM_DIR   = Path(_var("RAG_LLM_DIR", "/opt/airflow/rag-llm"))
 DATABASE_URL_TEST = _var("DATABASE_URL_TEST", "")
 DATABASE_URL_PROD = _var("DATABASE_URL_PROD", "")
 
+# URL Render du service vitiscan-rag-llm-test (cf. render.yaml) - même code que vitiscan-rag-llm
+# mais branché sur DATABASE_URL_TEST. Interrogé en HTTP par run_golden_prompts_gate pour rejouer
+# les golden prompts contre le vrai service déployé, pas seulement contre les données.
+RAG_LLM_TEST_URL = _var("RAG_LLM_TEST_URL", "")
+
 # Nom de la Variable Airflow qui mémorise le timestamp du dernier document ingéré en prod
 LAST_INGESTED_VAR = "vitiscan_rag_last_ingested_at"
 
