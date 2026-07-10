@@ -7,8 +7,12 @@ requests>=2.31.0,<3
 
 # Versions figées pour rester compatible avec le modèle entraîné et loggé sous mlflow==3.7.0
 mlflow==3.7.0
-torch==2.5.0
-torchvision==0.20.0
+# Build CPU-only (pas CUDA) : DEVICE="cpu" dans app.py, pas de GPU sur Render/CI - sans cet index,
+# pip installe par défaut la build CUDA (plusieurs Go, import plus lent), jamais utilisée ici mais
+# alourdissant le démarrage à froid (contribuait au timeout du health check Render).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.0+cpu
+torchvision==0.20.0+cpu
 pillow>=10.0.0
 boto3
 numpy==2.1.3

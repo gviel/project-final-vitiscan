@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -85,12 +86,21 @@ def _predict(input_tensor: torch.Tensor) -> list[tuple[str, float]]:
     return predictions
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _load_model_safe() -> None:
     try:
         _load_model()
     except Exception:
         logger.exception("Erreur au chargement du modèle au démarrage de l'API")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Chargement en arrière-plan (thread pool), pas bloquant : sinon l'app ne répond à AUCUNE
+    # requête - y compris /health - tant que le modèle n'est pas chargé (~150s mesuré : torch +
+    # téléchargement MLflow). Render tue l'instance après 60s d'échecs consécutifs du health
+    # check -> cycle de redémarrage. /health répond immédiatement avec model_loaded=false tant
+    # que le chargement n'est pas terminé, ce qui suffit à satisfaire le health check Render.
+    asyncio.get_event_loop().run_in_executor(None, _load_model_safe)
     yield
 
 

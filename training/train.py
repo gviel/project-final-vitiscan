@@ -310,6 +310,11 @@ def train_model(args: argparse.Namespace) -> dict:
 
             model_display_name = args.model.lower().capitalize()
             registered_name = f"{model_display_name}_{args.dataset_name}_ep{args.epochs}"
+            # Déplacement explicite sur CPU avant le logging : l'artifact sauvegardé est alors
+            # directement portable, sans dépendre de map_location au chargement (déjà fait côté
+            # api/app.py::_load_model, mais ceinture-bretelles - un modèle entraîné sur
+            # CUDA/MPS ne doit jamais supposer la présence d'un GPU côté serveur d'inférence).
+            model.to("cpu")
             model_info = mlflow.pytorch.log_model(
                 pytorch_model=model,
                 registered_model_name=registered_name,
