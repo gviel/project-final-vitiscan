@@ -4,3 +4,6 @@ streamlit
 folium
 pillow
 streamlit-folium
+boto3
+# [binary] : évite d'avoir besoin d'un compilateur/libpq-dev dans l'image ui/Dockerfile (python:3.11-slim)
+psycopg[binary]>=3.2.3,<4.0.0

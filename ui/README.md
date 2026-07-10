@@ -24,3 +24,14 @@ Voir le `docker-compose.yml` racine pour lancer l'ensemble de la stack.
 
 Testable en local sous Docker, déployable ensuite sur Streamlit Community Cloud — voir
 `docs/deploiement-render-streamlit.md` pour la procédure complète (secrets, vérification).
+
+## Sauvegarde photo + métadonnées (labeling)
+
+À chaque diagnostic réussi, `storage.py` sauvegarde la photo sur S3 (bucket `PHOTOS_S3_BUCKET`,
+préfixe `PHOTOS_S3_PREFIX`) et ses métadonnées (GPS, timestamp EXIF, prédiction, `model_version`)
+dans une table Neon (`vitiscan_photos`, schéma dans `labeling/db/schema.sql`) — voir
+`ui/.env.template` pour les variables à renseigner (`AWS_*`, `DATABASE_URL`, `PHOTOS_S3_*`).
+
+Cette sauvegarde alimente le dashboard `labeling/` (labellisation humaine + calcul de drift, cf.
+`labeling/README.md`). Un échec S3/Neon n'empêche jamais l'affichage du diagnostic déjà obtenu par
+le viticulteur : `st.warning` discret côté UI, détail de l'erreur dans les logs uniquement.
