@@ -30,9 +30,6 @@ DATABASE_URL_PROD = _var("DATABASE_URL_PROD", "")
 # les golden prompts contre le vrai service déployé, pas seulement contre les données.
 RAG_LLM_TEST_URL = _var("RAG_LLM_TEST_URL", "")
 
-# Nom de la Variable Airflow qui mémorise le timestamp du dernier document ingéré en prod
-LAST_INGESTED_VAR = "vitiscan_rag_last_ingested_at"
-
 AWS_ACCESS_KEY_ID     = _var("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = _var("AWS_SECRET_ACCESS_KEY", "")
 AWS_DEFAULT_REGION    = _var("AWS_DEFAULT_REGION", "eu-west-3")

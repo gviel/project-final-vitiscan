@@ -23,10 +23,9 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "ERREUR : airflow/$ENV_FILE introuvable (copier airflow/.env.template)." >&2
     exit 1
 fi
-for _var in RAG_S3_BUCKET RAG_S3_PREFIX DATABASE_URL_TEST DATABASE_URL_PROD \
+for _var in RAG_S3_BUCKET RAG_S3_PREFIX DATABASE_URL_TEST DATABASE_URL_PROD RAG_LLM_TEST_URL \
             DAG_RAG_INGESTION_CRON AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION \
-            MLFLOW_URI EXPERIMENT_NAME TRAINING_S3_BUCKET \
-            HF_API_URL HF_API_TOKEN HF_MODEL_ID; do
+            MLFLOW_URI EXPERIMENT_NAME TRAINING_S3_BUCKET; do
     if [ -z "${!_var:-}" ]; then
         export "$_var=$(grep -E "^${_var}=" "$ENV_FILE" | tail -1 | cut -d= -f2-)"
     fi

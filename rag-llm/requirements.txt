@@ -14,6 +14,14 @@ pgvector>=0.3.6,<1.0.0
 # celui-ci dans airflow/Dockerfile, donc ce pin n'affecte pas l'entraînement CNN.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.5.0+cpu
+# torchvision CPU-only, même principe que torch juste au-dessus : sentence-transformers (via
+# transformers) importe torchvision de façon paresseuse, et sans ce pin pip laissait
+# training/requirements.txt installer torchvision==0.20.0 "nu" (compilé contre le build CUDA de
+# torch, pas contre torch==2.5.0+cpu) - RuntimeError "operator torchvision::nms does not exist" au
+# premier import de sentence_transformers dans le conteneur Airflow (les deux torchvision::* étant
+# ABI-incompatibles). Installé ici en premier, la version pip "==0.20.0" de training/requirements.txt
+# est déjà satisfaite et ne réinstalle pas de build incompatible par-dessus.
+torchvision==0.20.0+cpu
 sentence-transformers>=2.2.0
 python-frontmatter
 requests

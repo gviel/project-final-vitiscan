@@ -32,3 +32,17 @@ CREATE INDEX IF NOT EXISTS vitiscan_knowledge_cnn_label_idx  ON vitiscan_knowled
 -- indexable via GIN.
 CREATE INDEX IF NOT EXISTS vitiscan_knowledge_mode_conduite_gin_idx
     ON vitiscan_knowledge USING GIN (mode_conduite);
+
+-- Manifest des documents de connaissance actuellement ingérés dans CETTE branche (utilisé par
+-- dags/tasks/rag_ingestion.py::branch_check_new_docs pour détecter des documents S3
+-- nouveaux/modifiés/supprimés par rapport à ce qui est réellement en base, plutôt qu'une simple
+-- Variable Airflow de type timestamp - qui ratait les changements de contenu à date inchangée et
+-- ignorait un changement de branche Neon cible entre deux runs).
+CREATE TABLE IF NOT EXISTS rag_knowledge_manifest (
+    filename     TEXT PRIMARY KEY,
+    -- ETag S3 (MD5 du contenu pour un upload simple, non multipart - toujours le cas ici vu la
+    -- taille des fiches .md), pas un vrai sha256 : évite de télécharger chaque fichier pour le
+    -- hasher, list_objects_v2 le fournit déjà gratuitement (cf. dags/tasks/rag_ingestion.py).
+    content_hash TEXT NOT NULL,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -1,7 +1,16 @@
 """
 Tâches du DAG d'ingestion RAG (specs.md, Partie 1) :
-détecte les nouveaux documents S3 par rapport à la dernière exécution, ingère dans la branche Neon
-de test, puis si OK, ingère dans la branche Neon de prod.
+détecte les documents S3 nouveaux/modifiés/supprimés par rapport au manifest déjà enregistré dans
+la branche Neon de PROD (table rag_knowledge_manifest, cf. rag-llm/db/schema.sql), ingère dans la
+branche Neon de test, puis si OK (golden prompts), ingère dans la branche Neon de prod et met à
+jour son manifest.
+
+Avant ce fichier comparait juste le LastModified S3 le plus récent à une Variable Airflow
+(timestamp de la dernière ingestion réussie) : ça ratait les modifications de contenu à date
+inchangée et les suppressions, et surtout ignorait totalement que DATABASE_URL_TEST/PROD peuvent
+avoir changé de branche Neon entre deux runs (la Variable disait "déjà ingéré" alors que la branche
+réellement ciblée aujourd'hui pouvait être vide - constaté en test réel). Comparer directement au
+contenu de la base cible élimine cette classe de bug par construction.
 
 rag-llm/ est monté en lecture seule dans le conteneur Airflow (cf. airflow/docker-compose.yml) et
 ses dépendances sont installées dans l'image Airflow (cf. airflow/Dockerfile) : les tâches
@@ -12,14 +21,14 @@ import os
 import shutil
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
+import psycopg
 import requests
 
 from config import (
-    AWS_DEFAULT_REGION, DATABASE_URL_PROD, DATABASE_URL_TEST, LAST_INGESTED_VAR, RAG_LLM_DIR,
+    AWS_DEFAULT_REGION, DATABASE_URL_PROD, DATABASE_URL_TEST, RAG_LLM_DIR,
     RAG_LLM_TEST_URL, RAG_S3_BUCKET, RAG_S3_PREFIX, WORK_DIR,
 )
 
@@ -30,13 +39,18 @@ sys.path.insert(0, str(RAG_LLM_DIR))
 # d'accumulation de dossiers temporaires ni de purge manuelle à faire après coup.
 RAG_KNOWLEDGE_WORK_DIR = WORK_DIR / "rag-knowledge"
 
+# Réutilise le même schema.sql que rag-llm/app/ingestion.py::ensure_schema (table
+# rag_knowledge_manifest incluse, cf. rag-llm/db/schema.sql) - une seule source de vérité pour le
+# DDL, appliqué de façon idempotente avant chaque lecture/écriture du manifest.
+MANIFEST_SCHEMA_SQL_PATH = RAG_LLM_DIR / "db" / "schema.sql"
+
 
 def _s3_client():
     return boto3.client("s3", region_name=AWS_DEFAULT_REGION)
 
 
 def _list_knowledge_docs() -> list[dict]:
-    """Liste les .md sous s3://RAG_S3_BUCKET/RAG_S3_PREFIX."""
+    """Liste les .md sous s3://RAG_S3_BUCKET/RAG_S3_PREFIX (avec leur ETag, cf. _s3_manifest)."""
     client = _s3_client()
     paginator = client.get_paginator("list_objects_v2")
     docs = []
@@ -47,13 +61,49 @@ def _list_knowledge_docs() -> list[dict]:
     return docs
 
 
+def _s3_manifest(docs: list) -> dict:
+    """
+    {nom_de_fichier: hash} à partir de l'ETag S3 (MD5 du contenu pour un upload simple/non
+    multipart - toujours le cas ici vu la taille des fiches .md) : évite de télécharger chaque
+    fichier juste pour le hasher, list_objects_v2 le fournit déjà gratuitement.
+    """
+    return {Path(doc["Key"]).name: doc["ETag"].strip('"') for doc in docs}
+
+
+def _ensure_manifest_table(conn) -> None:
+    conn.execute(MANIFEST_SCHEMA_SQL_PATH.read_text())
+    conn.commit()
+
+
+def _fetch_manifest(database_url: str) -> dict:
+    """Manifest {filename: hash} actuellement enregistré dans la branche Neon donnée."""
+    with psycopg.connect(database_url) as conn:
+        _ensure_manifest_table(conn)
+        with conn.cursor() as cur:
+            cur.execute("SELECT filename, content_hash FROM rag_knowledge_manifest")
+            return dict(cur.fetchall())
+
+
+def _write_manifest(database_url: str, manifest: dict) -> None:
+    """Remplace le contenu de rag_knowledge_manifest par `manifest` (même logique de ré-écriture
+    complète que le TRUNCATE + réinsertion des chunks, cf. app.ingestion.ingest_chunks_into_db)."""
+    with psycopg.connect(database_url) as conn:
+        _ensure_manifest_table(conn)
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE TABLE rag_knowledge_manifest;")
+            for filename, content_hash in manifest.items():
+                cur.execute(
+                    "INSERT INTO rag_knowledge_manifest (filename, content_hash) VALUES (%s, %s)",
+                    (filename, content_hash),
+                )
+        conn.commit()
+
+
 def branch_check_new_docs(**context) -> str:
     """
-    Compare le document le plus récent de S3 à la Variable LAST_INGESTED_VAR.
-    Retourne le prochain task_id ("download_and_ingest_test" ou "stop_dag").
+    Compare le manifest S3 courant (nom de fichier + hash) au manifest déjà enregistré dans la
+    branche Neon de PROD. Retourne le prochain task_id ("download_and_ingest_test" ou "stop_dag").
     """
-    from airflow.models import Variable
-
     try:
         docs = _list_knowledge_docs()
     except Exception as exc:
@@ -64,17 +114,22 @@ def branch_check_new_docs(**context) -> str:
         print(f"[rag_ingestion] Aucun document trouvé sous s3://{RAG_S3_BUCKET}/{RAG_S3_PREFIX}")
         return "stop_dag"
 
-    last_modified = max(doc["LastModified"] for doc in docs)
-    last_ingested_str = Variable.get(LAST_INGESTED_VAR, default_var=None)
+    s3_manifest = _s3_manifest(docs)
+    try:
+        prod_manifest = _fetch_manifest(DATABASE_URL_PROD)
+    except Exception as exc:
+        print(f"[rag_ingestion] WARN lecture manifest prod : {exc} - ingestion déclenchée par prudence.")
+        prod_manifest = {}
 
-    if last_ingested_str:
-        last_ingested = datetime.fromisoformat(last_ingested_str)
-        if last_modified <= last_ingested:
-            print(f"[rag_ingestion] Rien de neuf (dernier doc={last_modified.isoformat()} <= dernière ingestion={last_ingested_str})")
-            return "stop_dag"
+    if s3_manifest == prod_manifest:
+        print("[rag_ingestion] Rien de neuf (S3 identique au manifest déjà en prod).")
+        return "stop_dag"
 
-    print(f"[rag_ingestion] {len(docs)} document(s) détecté(s), dernier modifié le {last_modified.isoformat()} - ingestion déclenchée.")
-    context["ti"].xcom_push(key="last_modified", value=last_modified.isoformat())
+    added = sorted(set(s3_manifest) - set(prod_manifest))
+    removed = sorted(set(prod_manifest) - set(s3_manifest))
+    modified = sorted(f for f in (set(s3_manifest) & set(prod_manifest)) if s3_manifest[f] != prod_manifest[f])
+    print(f"[rag_ingestion] Changements détectés - ajoutés={added}, modifiés={modified}, supprimés={removed} - ingestion déclenchée.")
+    context["ti"].xcom_push(key="s3_manifest", value=s3_manifest)
     return "download_and_ingest_test"
 
 
@@ -179,15 +234,18 @@ def run_golden_prompts_gate(**context) -> None:
 
 
 def ingest_prod(**context):
-    """Réingère les mêmes documents dans la branche Neon de prod (n'est atteint que si le test ET les golden prompts ont réussi)."""
-    from airflow.models import Variable
-
+    """
+    Réingère les mêmes documents dans la branche Neon de prod (n'est atteint que si le test ET les
+    golden prompts ont réussi), puis met à jour son manifest (rag_knowledge_manifest) avec l'état
+    S3 qui vient d'être promu - c'est ce manifest que branch_check_new_docs relira au prochain run
+    pour décider s'il y a du nouveau.
+    """
     tmp_dir = context["ti"].xcom_pull(task_ids="download_and_ingest_test", key="knowledge_dir")
     _run_ingestion(tmp_dir, DATABASE_URL_PROD)
 
-    last_modified = context["ti"].xcom_pull(task_ids="branch_check_new_docs", key="last_modified")
-    Variable.set(LAST_INGESTED_VAR, last_modified or datetime.now(timezone.utc).isoformat())
-    print(f"[rag_ingestion] Ingestion prod terminée, {LAST_INGESTED_VAR}={last_modified}")
+    s3_manifest = context["ti"].xcom_pull(task_ids="branch_check_new_docs", key="s3_manifest")
+    _write_manifest(DATABASE_URL_PROD, s3_manifest)
+    print(f"[rag_ingestion] Ingestion prod terminée, manifest mis à jour ({len(s3_manifest)} fichier(s)).")
 
 
 def _run_ingestion(knowledge_dir: str, database_url: str) -> None:
