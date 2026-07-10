@@ -10,7 +10,7 @@ ultérieures. MLflow reste hors scope (déjà déployé sur Hugging Face Spaces,
 | `api/` (prédiction CNN) | Render, service Docker | `render.yaml` (Blueprint) |
 | `rag-llm/` (RAG-LLM) | Render, service Docker | `render.yaml` (Blueprint) |
 | `ui/` (Streamlit) | Streamlit Community Cloud | connexion directe au dépôt GitHub |
-| Weaviate | externe (Cloud ou VM dédiée) | **pas** déployé sur Render, cf. ci-dessous |
+| Base de connaissances RAG | Neon (Postgres + `pgvector`) | externe, `DATABASE_URL` sur `vitiscan-rag-llm`, cf. ci-dessous |
 | MLflow | Hugging Face Spaces (existant) | rien à faire |
 
 Un `render.yaml` à la racine du dépôt déclare `api` et `rag-llm` comme Blueprint Render
@@ -25,42 +25,42 @@ fichier : Streamlit Community Cloud ne consomme pas `render.yaml`, il déploie d
 |---|---|---|---|
 | `vitiscan-api` (Render) | https://vitiscan-api.onrender.com | ~150s (recharge du modèle CNN depuis MLflow, torch+mlflow) | ~0.6s |
 | `vitiscan-rag-llm` (Render) | https://vitiscan-rag-llm.onrender.com | non mesuré à froid (déjà chaud lors du 1er test) | ~0.6s |
-| Weaviate REST (ngrok, local) | https://slinkier-sallowly-maura.ngrok-free.dev | domaine fixe, ne change pas | — |
-| Weaviate gRPC (ngrok, local) | ⚠️ non fonctionnel actuellement (cf. section "Blocage ngrok TCP" ci-dessous) | adresse aléatoire à chaque redémarrage du tunnel | — |
+| Neon (Postgres/pgvector, branche prod) | interne (`DATABASE_URL`, non exposée publiquement) | — | — |
 | `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ | — | — |
 
 **Mise en veille Render (plan free)** : après **15 minutes** sans requête entrante (confirmé
 [render.com/docs/free](https://render.com/docs/free)), le service se met en veille. La requête
 suivante le réveille automatiquement, avec la latence à froid indiquée ci-dessus.
 
-## ⚠️ Blocage ngrok TCP (gRPC) en cours d'investigation
+## Historique — Blocage ngrok TCP (gRPC), pertinent avant la migration pgvector
+
+> Cette section documente un problème résolu par la migration vers Neon/pgvector (le tunnel ngrok
+> n'est plus utilisé, cf. `docs/simulation-prod-ngrok.md`). Conservée pour référence historique.
 
 Le tunnel TCP ngrok (nécessaire pour le gRPC de Weaviate, cf. `docs/simulation-prod-ngrok.md`) se
-crée sans erreur côté agent local, mais **ne route pas réellement le trafic externe** : connexion
-refusée aussi bien en local qu'depuis Render, alors que l'IP de l'edge ngrok répond normalement sur
-le port 443. Cause exacte non confirmée (limitation du plan gratuit non documentée clairement,
-délai de propagation de la vérification carte, ou autre). Conséquence : `/solutions` sur
-`vitiscan-rag-llm` renvoie une erreur 500 tant que ce point n'est pas résolu — `/health` fonctionne
-normalement (ne dépend pas de Weaviate).
+créait sans erreur côté agent local, mais **ne routait pas réellement le trafic externe** :
+connexion refusée aussi bien en local qu'depuis Render, alors que l'IP de l'edge ngrok répondait
+normalement sur le port 443. Cause exacte non confirmée (limitation du plan gratuit non documentée
+clairement, délai de propagation de la vérification carte, ou autre). Conséquence : `/solutions`
+sur `vitiscan-rag-llm` renvoyait une erreur 500 tant que ce point n'était pas résolu — `/health`
+fonctionnait normalement (ne dépendait pas de Weaviate).
 
-## Pourquoi Weaviate n'est pas sur Render
+## Pourquoi la base de connaissances RAG est sur Neon (pas sur Render)
 
-`rag-llm/README.md` (section "Weaviate en production") documente déjà que le plan gratuit Weaviate
-Cloud utilisé pour la CDSD est peu fiable (base détruite après un certain temps d'inactivité). Ce
-n'est pas résolu ici — mais l'auto-héberger sur Render en plan gratuit serait **pire** : les
-services Docker gratuits de Render n'ont pas de disque persistant et se mettent en veille après 15
-min d'inactivité (cf. plus bas), donc les données Weaviate seraient perdues à chaque redémarrage,
-pas seulement après une longue inactivité.
+`rag-llm/README.md` documentait que le plan gratuit Weaviate Cloud utilisé pour la CDSD était peu
+fiable (base détruite après un certain temps d'inactivité), et que l'auto-héberger sur Render en
+plan gratuit aurait été **pire** : les services Docker gratuits de Render n'ont pas de disque
+persistant et se mettent en veille après 15 min d'inactivité (cf. plus bas), donc les données
+auraient été perdues à chaque redémarrage, pas seulement après une longue inactivité.
 
-Deux options pour `WEAVIATE_URL`/`WEAVIATE_API_KEY` (`rag-llm` sur Render) :
-- **Weaviate Cloud** (plan gratuit ou payant) — le plus simple à brancher, mais hérite du problème
-  de fiabilité déjà connu en plan gratuit.
-- **Weaviate auto-hébergé sur une machine avec disque persistant** (VM dédiée, ou tout hébergeur
-  offrant un volume persistant) — plus robuste, plus de travail d'infra.
+Neon (Postgres managé, extension `pgvector`) résout nativement ce problème : persistant (pas de
+disque éphémère), gratuit, et joignable directement depuis Render via `DATABASE_URL` — pas besoin
+de tunnel (ngrok) ni de dépendre d'une machine locale allumée. Une seule variable à renseigner sur
+`vitiscan-rag-llm` : `DATABASE_URL` (branche Neon "prod", URL pooled).
 
-Tant que ce point n'est pas tranché, `rag-llm` peut être déployé et fonctionner (health check OK),
-mais `/solutions` tombera sur le message de repli générique si `WEAVIATE_URL` ne pointe vers rien
-d'ingéré (cf. `docs/harmonisation-noms-maladies.md` pour ce comportement).
+Tant que cette variable n'est pas renseignée, `rag-llm` peut être déployé et fonctionner (health
+check OK), mais `/solutions` tombera sur le message de repli générique si la base ne pointe vers
+rien d'ingéré (cf. `docs/harmonisation-noms-maladies.md` pour ce comportement).
 
 ## 1. `api/` sur Render
 
@@ -89,14 +89,14 @@ curl -X POST https://<votre-service>.onrender.com/diagno -F "file=@photo.jpg"
 ## 2. `rag-llm/` sur Render
 
 Créé automatiquement par le même Blueprint (`vitiscan-rag-llm`). Renseigner à la création :
-`HF_API_TOKEN` (cf. `rag-llm/.env.template`), `WEAVIATE_URL`, `WEAVIATE_API_KEY` (cf. section
-Weaviate ci-dessus).
+`HF_API_TOKEN` (cf. `rag-llm/.env.template`), `DATABASE_URL` (branche Neon "prod", cf. section
+ci-dessus).
 
 **Ingestion des documents** : contrairement à `docker-compose` en local (où `python -m
 app.ingestion` se lance manuellement), rien n'ingère automatiquement les fiches
-`data/knowledge/*.md` dans le Weaviate de prod au déploiement. Deux options :
-- lancer `python -m app.ingestion` une fois manuellement, en pointant `WEAVIATE_URL`/
-  `WEAVIATE_API_KEY` (ou `WEAVIATE_HOST`/`PORT` en local) vers l'instance de prod ;
+`data/knowledge/*.md` dans la base de prod au déploiement. Deux options :
+- lancer `python -m app.ingestion` une fois manuellement, en pointant `DATABASE_URL` vers la
+  branche Neon de prod ;
 - ou attendre que le DAG Airflow `dag_rag_ingestion` soit opérationnel de bout en bout (cf.
   `docs/refactoring.md`, reste à faire) — c'est son rôle prévu.
 

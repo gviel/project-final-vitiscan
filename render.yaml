@@ -47,28 +47,27 @@ services:
         sync: false
       - key: HF_MODEL_ID
         value: meta-llama/Meta-Llama-3-8B-Instruct
-      # Weaviate hébergé (Cloud ou toute instance externe persistante) — impératif en prod :
-      # pas de service "weaviate" Docker joignable par nom comme en local docker-compose, et
-      # l'auto-héberger sur Render (plan free, disque éphémère + mise en veille) ferait perdre la
-      # base à chaque redémarrage. Cf. docs/deploiement-render-streamlit.md.
-      #
-      # Option A : vrai cluster Weaviate Cloud -> WEAVIATE_URL + WEAVIATE_API_KEY.
-      # Option B : Weaviate local exposé via tunnel (ex: ngrok, cf.
-      # docs/simulation-prod-ngrok.md) -> WEAVIATE_CUSTOM_HTTP_HOST/GRPC_HOST + WEAVIATE_API_KEY,
-      # laisser WEAVIATE_URL vide.
-      - key: WEAVIATE_URL
+      # --- Ancien Weaviate/ngrok, désactivé depuis la migration pgvector (cf.
+      # docs/deploiement-render-streamlit.md) — conservé commenté pour référence historique ---
+      # - key: WEAVIATE_URL
+      #   sync: false
+      # - key: WEAVIATE_API_KEY
+      #   sync: false
+      # - key: WEAVIATE_CUSTOM_HTTP_HOST
+      #   sync: false
+      # - key: WEAVIATE_CUSTOM_HTTP_PORT
+      #   value: "443"
+      # - key: WEAVIATE_CUSTOM_HTTP_SECURE
+      #   value: "true"
+      # - key: WEAVIATE_CUSTOM_GRPC_HOST
+      #   sync: false
+      # - key: WEAVIATE_CUSTOM_GRPC_PORT
+      #   sync: false
+      # - key: WEAVIATE_CUSTOM_GRPC_SECURE
+      #   value: "false"
+
+      # Neon (Postgres managé + extension pgvector) — persistant, gratuit, joignable directement
+      # depuis Render sans tunnel. Utiliser l'URL "pooled" fournie par Neon (hôte suffixé
+      # -pooler), branche "prod". Cf. docs/deploiement-render-streamlit.md.
+      - key: DATABASE_URL
         sync: false
-      - key: WEAVIATE_API_KEY
-        sync: false
-      - key: WEAVIATE_CUSTOM_HTTP_HOST
-        sync: false  # ex: xxxxx.ngrok-free.dev (sans https://) - laisser vide si option A
-      - key: WEAVIATE_CUSTOM_HTTP_PORT
-        value: "443"
-      - key: WEAVIATE_CUSTOM_HTTP_SECURE
-        value: "true"
-      - key: WEAVIATE_CUSTOM_GRPC_HOST
-        sync: false  # ex: 0.tcp.ngrok.io - change à chaque redémarrage du tunnel TCP (plan gratuit)
-      - key: WEAVIATE_CUSTOM_GRPC_PORT
-        sync: false  # port attribué par le tunnel TCP ngrok, change à chaque redémarrage
-      - key: WEAVIATE_CUSTOM_GRPC_SECURE
-        value: "false"  # tunnel TCP brut, pas de TLS applicatif côté Weaviate

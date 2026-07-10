@@ -1,3 +1,9 @@
+> **EN SOMMEIL depuis la migration pgvector.** Ce montage servait à contourner l'absence
+> d'hébergement Weaviate persistant sur Render. Neon (Postgres managé + extension `pgvector`)
+> résout nativement ce problème (persistant, gratuit, joignable directement par `DATABASE_URL`,
+> sans tunnel) — cf. `docs/deploiement-render-streamlit.md`. Ce document est conservé tel quel
+> pour référence historique / retour arrière éventuel.
+
 # Simuler un déploiement prod avec Weaviate local + ngrok
 
 Objectif : déployer `api` et `rag-llm` sur Render (vraie prod), en pointant `rag-llm` vers votre

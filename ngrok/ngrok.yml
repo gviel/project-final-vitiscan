@@ -1,3 +1,7 @@
+# EN SOMMEIL depuis la migration pgvector — ce fichier n'est plus monté par aucun service
+# docker-compose actif (le service "ngrok" du docker-compose.yml racine est commenté). Conservé
+# pour retour arrière éventuel, cf. docs/simulation-prod-ngrok.md.
+#
 # Config ngrok (agent v3) pour exposer le Weaviate local — cf. docs/simulation-prod-ngrok.md.
 # NGROK_AUTHTOKEN passé séparément via variable d'environnement (pas dans ce fichier, cf.
 # docker-compose.yml + .env racine) : ce fichier ne contient aucun secret, il peut être committé.

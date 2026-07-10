@@ -19,7 +19,7 @@ import yaml
 
 from app.dosage_rules import compute_dosage
 
-FALLBACK_MARKER = "informations disponibles"  # aucun chunk Weaviate trouvé (le bug qu'on vérifie)
+FALLBACK_MARKER = "informations disponibles"  # aucun chunk pgvector trouvé (le bug qu'on vérifie)
 LLM_ERROR_MARKER = "detail technique"  # chunks trouvés, mais l'appel LLM lui-même a échoué (quota/API HF)
 
 GOLDEN_PROMPTS_PATH = Path(__file__).resolve().parents[1] / "tests" / "golden_prompts.yaml"
@@ -83,7 +83,7 @@ def evaluate_case(data: Dict[str, Any], case: Dict[str, Any]) -> None:
     if FALLBACK_MARKER in diagnostic_norm:
         raise GoldenPromptFailure(
             "Réponse tombée sur le message de repli générique — la fiche n'a pas été retrouvée dans "
-            f"Weaviate pour cnn_label={case['cnn_label']!r}. Diagnostic: {data.get('diagnostic')!r}"
+            f"pgvector pour cnn_label={case['cnn_label']!r}. Diagnostic: {data.get('diagnostic')!r}"
         )
 
     treatment_plan = data.get("treatment_plan") or {}

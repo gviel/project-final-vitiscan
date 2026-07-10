@@ -1,22 +1,25 @@
-# Stack minimale pour développer rag-llm/ isolément (juste Weaviate).
-# Pour la stack complète (api + ui + rag-llm + weaviate), voir le docker-compose.yml racine.
+# Stack minimale pour développer rag-llm/ isolément (juste Postgres/pgvector).
+# Pour la stack complète (api + ui + rag-llm + postgres), voir le docker-compose.yml racine.
 
 services:
-  weaviate:
-    image: semitechnologies/weaviate:1.27.4
-    container_name: vitiscan_weaviate_dev
+  postgres:
+    # pg18 : même version majeure que Neon (confirmé "PostgreSQL 18.4" lors du test de migration).
+    image: pgvector/pgvector:pg18
+    container_name: vitiscan_postgres_dev
     restart: unless-stopped
-    ports:
-      - "8081:8080"    # API REST
-      - "50051:50051"  # API gRPC (client v4)
     environment:
-      QUERY_DEFAULTS_LIMIT: 20
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
-      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
-      DEFAULT_VECTORIZER_MODULE: "none"
-      CLUSTER_HOSTNAME: "vitiscan-weaviate-dev"
+      POSTGRES_USER: vitiscan
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}"
+      POSTGRES_DB: vitiscan_knowledge
+    ports:
+      - "5433:5432"
     volumes:
-      - vitiscan_weaviate_dev_data:/var/lib/weaviate
+      - vitiscan_postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan_knowledge"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
 
 volumes:
-  vitiscan_weaviate_dev_data:
+  vitiscan_postgres_dev_data:

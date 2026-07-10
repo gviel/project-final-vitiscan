@@ -1,4 +1,4 @@
-# Stack locale complète : api (CNN) + rag-llm (RAG-LLM) + ui (Streamlit) + weaviate (local).
+# Stack locale complète : api (CNN) + rag-llm (RAG-LLM) + ui (Streamlit) + postgres/pgvector (local).
 # MLflow reste externe (déployé sur Hugging Face Spaces), non géré ici.
 #
 # Démarrage : docker-compose up --build (v1 legacy, seule disponible dans l'environnement de dev
@@ -12,34 +12,25 @@
 
 services:
 
-  weaviate:
-    image: semitechnologies/weaviate:1.27.4
-    container_name: vitiscan_weaviate
+  postgres:
+    # pg18 : même version majeure que Neon (confirmé "PostgreSQL 18.4" lors du test de migration),
+    # pour rester au plus proche de la prod en dev local.
+    image: pgvector/pgvector:pg18
+    container_name: vitiscan_postgres
     restart: unless-stopped
-    ports:
-      - "8081:8080"    # API REST (8080 déjà utilisé par la stack Airflow de Fraud Detection)
-      - "50051:50051"  # API gRPC (client v4)
     environment:
-      QUERY_DEFAULTS_LIMIT: 20
-      # Auth par clé API (pas d'accès anonyme) : nécessaire avant toute exposition externe
-      # (ex: tunnel ngrok pour simuler la prod, cf. docs/deploiement-render-streamlit.md).
-      # WEAVIATE_API_KEY lu depuis .env racine (gitignoré, cf. .env.template).
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "false"
-      AUTHENTICATION_APIKEY_ENABLED: "true"
-      AUTHENTICATION_APIKEY_ALLOWED_KEYS: "${WEAVIATE_API_KEY:?WEAVIATE_API_KEY manquant, cf. .env.template racine}"
-      AUTHENTICATION_APIKEY_USERS: "vitiscan-admin"
-      AUTHORIZATION_ADMINLIST_ENABLED: "true"
-      AUTHORIZATION_ADMINLIST_USERS: "vitiscan-admin"
-      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
-      DEFAULT_VECTORIZER_MODULE: "none"
-      CLUSTER_HOSTNAME: "vitiscan-weaviate"
+      POSTGRES_USER: vitiscan
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}"
+      POSTGRES_DB: vitiscan_knowledge
+    ports:
+      - "5433:5432"   # 5432 déjà pris par vitiscan_airflow_db côté hôte si les 2 stacks tournent ensemble
     volumes:
-      - vitiscan_weaviate_data:/var/lib/weaviate
+      - vitiscan_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U vitiscan -d vitiscan_knowledge"]
       interval: 10s
       retries: 5
-      start_period: 20s
+      start_period: 10s
 
   api:
     build:
@@ -65,15 +56,12 @@ services:
     env_file:
       - rag-llm/.env
     environment:
-      # override : à l'intérieur du réseau docker-compose, weaviate est joignable par son nom de service
-      WEAVIATE_HOST: weaviate
-      WEAVIATE_PORT: 8080
-      WEAVIATE_GRPC_PORT: 50051
-      WEAVIATE_API_KEY: "${WEAVIATE_API_KEY:?WEAVIATE_API_KEY manquant, cf. .env.template racine}"
+      # override : à l'intérieur du réseau docker-compose, postgres est joignable par son nom de service
+      DATABASE_URL: "postgresql://vitiscan:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}@postgres:5432/vitiscan_knowledge"
     ports:
       - "9000:9000"
     depends_on:
-      weaviate:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -100,27 +88,29 @@ services:
       - rag-llm
     restart: unless-stopped
 
-  # Optionnel, ne démarre PAS avec un simple `docker-compose up` (profile dédié) - expose le
-  # Weaviate local publiquement pour simuler un déploiement Render, cf.
-  # docs/simulation-prod-ngrok.md. Démarrage : `docker-compose --profile ngrok up -d ngrok`.
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: vitiscan_ngrok
-    restart: unless-stopped
-    profiles: ["ngrok"]
-    environment:
-      # Défaut vide (pas `:?` obligatoire) : sinon docker-compose refuserait TOUTE commande, même
-      # sur les autres services, tant que NGROK_AUTHTOKEN n'est pas renseigné (l'interpolation de
-      # variables est évaluée pour tous les services, indépendamment du profile actif).
-      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:-}"
-    volumes:
-      - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
-    command: start --all --config /etc/ngrok.yml
-    ports:
-      - "4040:4040"    # interface web ngrok (statut des tunnels, adresse gRPC attribuée)
-    depends_on:
-      weaviate:
-        condition: service_healthy
+  # EN SOMMEIL depuis la migration pgvector — le Weaviate qu'il exposait n'existe plus en dev
+  # local (remplacé par le service "postgres" ci-dessus, pas besoin de tunnel pour Render
+  # puisque Neon est joignable directement par DATABASE_URL). Conservé commenté pour retour
+  # arrière éventuel, cf. docs/simulation-prod-ngrok.md.
+  #
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   container_name: vitiscan_ngrok
+  #   restart: unless-stopped
+  #   profiles: ["ngrok"]
+  #   environment:
+  #     # Défaut vide (pas `:?` obligatoire) : sinon docker-compose refuserait TOUTE commande, même
+  #     # sur les autres services, tant que NGROK_AUTHTOKEN n'est pas renseigné (l'interpolation de
+  #     # variables est évaluée pour tous les services, indépendamment du profile actif).
+  #     NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:-}"
+  #   volumes:
+  #     - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
+  #   command: start --all --config /etc/ngrok.yml
+  #   ports:
+  #     - "4040:4040"    # interface web ngrok (statut des tunnels, adresse gRPC attribuée)
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
 
 volumes:
-  vitiscan_weaviate_data:
+  vitiscan_postgres_data:

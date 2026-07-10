@@ -18,18 +18,12 @@ RAG_S3_BUCKET = _var("RAG_S3_BUCKET", "s3-vitiscan-data")
 RAG_S3_PREFIX = _var("RAG_S3_PREFIX", "knowledge/current/")
 RAG_LLM_DIR   = Path(_var("RAG_LLM_DIR", "/opt/airflow/rag-llm"))
 
-# Weaviate "test" (local à la stack Airflow, isolé) vs "prod" (celui de la stack applicative
-# principale, docker-compose.yml racine - conteneurs de projets Compose distincts, donc pas de
-# résolution DNS par nom de service : on rejoint le port publié sur l'hôte via host.docker.internal,
-# cf. extra_hosts host-gateway dans airflow/docker-compose.yml).
-WEAVIATE_TEST_HOST = _var("WEAVIATE_TEST_HOST", "weaviate-test")
-WEAVIATE_TEST_PORT = int(_var("WEAVIATE_TEST_PORT", "8080"))
-WEAVIATE_PROD_HOST = _var("WEAVIATE_PROD_HOST", "host.docker.internal")
-WEAVIATE_PROD_PORT = int(_var("WEAVIATE_PROD_PORT", "8081"))  # port publié par le docker-compose.yml racine
-WEAVIATE_GRPC_PORT = int(_var("WEAVIATE_GRPC_PORT", "50051"))
-# Clé API du Weaviate "prod" (accès anonyme désactivé, cf. docker-compose.yml racine) - même valeur
-# que .env racine / rag-llm/.env. weaviate-test reste en accès anonyme, pas besoin de clé pour lui.
-WEAVIATE_API_KEY = _var("WEAVIATE_API_KEY", "")
+# Neon Postgres/pgvector : une branche "test" et une branche "prod" (branching natif Neon,
+# copy-on-write), créées manuellement au préalable - reproduit l'isolation qu'offraient les 2
+# instances Weaviate test/prod, sans avoir besoin de host.docker.internal (Neon est joignable
+# directement par URL, contrairement à l'ancien Weaviate "prod" du docker-compose.yml racine).
+DATABASE_URL_TEST = _var("DATABASE_URL_TEST", "")
+DATABASE_URL_PROD = _var("DATABASE_URL_PROD", "")
 
 # Nom de la Variable Airflow qui mémorise le timestamp du dernier document ingéré en prod
 LAST_INGESTED_VAR = "vitiscan_rag_last_ingested_at"

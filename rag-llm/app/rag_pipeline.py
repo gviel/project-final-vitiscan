@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional
 import re
 
 from app.dosage_rules import compute_dosage
-from app.weaviate_client import weaviate_client, search_treatment_chunks
+from app.vector_store import db_client, search_treatment_chunks
 from app.prompts import build_treatment_prompt
 from app.llm_client import call_llm, LLMError
 from app.diseases import DISEASE_FR, cnn_label_to_fr, normalize_cnn_label
@@ -184,7 +184,7 @@ def generate_treatment_advice(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Pipeline principal :
     1) Déduit la saison à partir de la date.
-    2) Va chercher les chunks de connaissance pertinents dans Weaviate.
+    2) Va chercher les chunks de connaissance pertinents dans Postgres/pgvector.
     3) Construit un prompt RAG et appelle un LLM.
     4) Calcule les dosages via compute_dosage.
     5) Retourne une réponse structurée pour l'API.
@@ -198,8 +198,8 @@ def generate_treatment_advice(payload: Dict[str, Any]) -> Dict[str, Any]:
     season = infer_season_from_date(date_iso)
     cnn_label_normalized = normalize_cnn_label(cnn_label)
 
-    # 2. Récupération des chunks dans Weaviate
-    with weaviate_client() as client:
+    # 2. Récupération des chunks dans Postgres/pgvector
+    with db_client() as client:
         chunks = search_treatment_chunks(client, disease_input=cnn_label, mode=mode, severity=severity, top_k=8)
         if not chunks:
             chunks = search_treatment_chunks(client, disease_input=cnn_label_normalized, mode=None, severity=severity, top_k=8)

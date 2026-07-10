@@ -45,14 +45,14 @@ docker-compose up --build
 > avec un tiret) — pas le plugin `docker compose` v2. Si votre machine a le plugin v2, `docker
 > compose up --build` fonctionne aussi.
 
-Services exposés : `api` (4000), `ui` (8502), `rag-llm` (9000), `weaviate` (8081 REST / 50051 gRPC).
+Services exposés : `api` (4000), `ui` (8502), `rag-llm` (9000), `postgres` (5433, Postgres/pgvector).
 Voir `docker-compose.yml` pour le détail.
 
 ## Tests
 
 ```bash
 cd rag-llm && pip install -r requirements.txt -r requirements-test.txt
-python -m app.ingestion          # ingère data/knowledge/ dans Weaviate (stack démarrée au préalable)
+python -m app.ingestion          # ingère data/knowledge/ dans Postgres/pgvector (stack démarrée au préalable)
 pytest tests/                    # golden prompts : vérifie retrieval + dosage + (si HF_API_TOKEN valide) diagnostic LLM
 ```
 

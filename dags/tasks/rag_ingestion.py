@@ -1,7 +1,7 @@
 """
 Tâches du DAG d'ingestion RAG (specs.md, Partie 1) :
-détecte les nouveaux documents S3 par rapport à la dernière exécution, ingère dans un Weaviate
-de test, puis si OK, ingère dans le Weaviate de prod.
+détecte les nouveaux documents S3 par rapport à la dernière exécution, ingère dans la branche Neon
+de test, puis si OK, ingère dans la branche Neon de prod.
 
 rag-llm/ est monté en lecture seule dans le conteneur Airflow (cf. airflow/docker-compose.yml) et
 ses dépendances sont installées dans l'image Airflow (cf. airflow/Dockerfile) : les tâches
@@ -17,9 +17,8 @@ from pathlib import Path
 import boto3
 
 from config import (
-    AWS_DEFAULT_REGION, LAST_INGESTED_VAR, RAG_LLM_DIR, RAG_S3_BUCKET, RAG_S3_PREFIX,
-    WEAVIATE_API_KEY, WEAVIATE_GRPC_PORT, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT,
-    WEAVIATE_TEST_HOST, WEAVIATE_TEST_PORT, WORK_DIR,
+    AWS_DEFAULT_REGION, DATABASE_URL_PROD, DATABASE_URL_TEST, LAST_INGESTED_VAR, RAG_LLM_DIR,
+    RAG_S3_BUCKET, RAG_S3_PREFIX, WORK_DIR,
 )
 
 sys.path.insert(0, str(RAG_LLM_DIR))
@@ -80,7 +79,7 @@ def branch_check_new_docs(**context) -> str:
 def download_and_ingest_test(**context) -> str:
     """
     Télécharge les docs S3 dans RAG_KNOWLEDGE_WORK_DIR (work/rag-knowledge/, cf. module) et les
-    ingère dans le Weaviate de test. Le répertoire est vidé avant chaque téléchargement (pas
+    ingère dans la branche Neon de test. Le répertoire est vidé avant chaque téléchargement (pas
     seulement écrasé) pour éviter qu'un fichier supprimé côté S3 reste ingéré par erreur depuis un
     run précédent.
     """
@@ -97,7 +96,7 @@ def download_and_ingest_test(**context) -> str:
         client.download_file(RAG_S3_BUCKET, doc["Key"], str(dest))
     print(f"[rag_ingestion] {len(docs)} document(s) téléchargé(s) dans {work_dir}")
 
-    _run_ingestion(str(work_dir), WEAVIATE_TEST_HOST, WEAVIATE_TEST_PORT)
+    _run_ingestion(str(work_dir), DATABASE_URL_TEST)
 
     context["ti"].xcom_push(key="knowledge_dir", value=str(work_dir))
     return str(work_dir)
@@ -110,8 +109,8 @@ def run_golden_prompts_gate(**context) -> None:
     vector db de prod" — jusqu'ici seul le succès technique de l'ingestion faisait foi, cf.
     docs/refactoring.md section 8).
 
-    Rejoue rag-llm/tests/golden_prompts.yaml directement en process contre le Weaviate de test
-    qui vient d'être peuplé par download_and_ingest_test (même approche que _run_ingestion : pas
+    Rejoue rag-llm/tests/golden_prompts.yaml directement en process contre la branche Neon de test
+    qui vient d'être peuplée par download_and_ingest_test (même approche que _run_ingestion : pas
     besoin d'un serveur HTTP rag-llm démarré dans le conteneur Airflow, on importe et on appelle
     directement generate_treatment_advice()).
 
@@ -121,11 +120,7 @@ def run_golden_prompts_gate(**context) -> None:
     le LLM externe est indisponible, hors de portée de cette porte qui vérifie la résolution du
     nommage/dosage, pas la disponibilité du LLM).
     """
-    os.environ["WEAVIATE_HOST"] = WEAVIATE_TEST_HOST
-    os.environ["WEAVIATE_PORT"] = str(WEAVIATE_TEST_PORT)
-    os.environ["WEAVIATE_GRPC_PORT"] = str(WEAVIATE_GRPC_PORT)
-    os.environ["WEAVIATE_URL"] = ""  # force la connexion locale (host/port) plutôt que cloud
-    os.environ["WEAVIATE_API_KEY"] = ""  # weaviate-test tourne en accès anonyme, pas d'auth requise
+    os.environ["DATABASE_URL"] = DATABASE_URL_TEST
 
     from app.golden_prompts import GoldenPromptFailure, GoldenPromptSkipped, build_payload, evaluate_case, load_cases
     from app.rag_pipeline import generate_treatment_advice
@@ -142,7 +137,7 @@ def run_golden_prompts_gate(**context) -> None:
             skipped.append(f"{case['name']}: {exc}")
         except GoldenPromptFailure as exc:
             failures.append(f"{case['name']}: {exc}")
-        except Exception as exc:  # erreur inattendue (ex: Weaviate injoignable) - traitée comme un échec
+        except Exception as exc:  # erreur inattendue (ex: base injoignable) - traitée comme un échec
             failures.append(f"{case['name']}: erreur inattendue: {exc}")
 
     print(f"[rag_ingestion] Golden prompts : {n_ok} OK, {len(skipped)} skip, {len(failures)} échec(s) sur {len(cases)} cas.")
@@ -153,32 +148,26 @@ def run_golden_prompts_gate(**context) -> None:
 
     if failures:
         raise RuntimeError(
-            f"{len(failures)} golden prompt(s) en échec — promotion vers le Weaviate de prod annulée : {failures}"
+            f"{len(failures)} golden prompt(s) en échec — promotion vers la branche Neon de prod annulée : {failures}"
         )
 
 
 def ingest_prod(**context):
-    """Réingère les mêmes documents dans le Weaviate de prod (n'est atteint que si le test ET les golden prompts ont réussi)."""
+    """Réingère les mêmes documents dans la branche Neon de prod (n'est atteint que si le test ET les golden prompts ont réussi)."""
     from airflow.models import Variable
 
     tmp_dir = context["ti"].xcom_pull(task_ids="download_and_ingest_test", key="knowledge_dir")
-    # Weaviate "prod" (docker-compose.yml racine) exige une clé API (accès anonyme désactivé,
-    # cf. docker-compose.yml) - contrairement à weaviate-test, resté en accès anonyme.
-    _run_ingestion(tmp_dir, WEAVIATE_PROD_HOST, WEAVIATE_PROD_PORT, api_key=WEAVIATE_API_KEY)
+    _run_ingestion(tmp_dir, DATABASE_URL_PROD)
 
     last_modified = context["ti"].xcom_pull(task_ids="branch_check_new_docs", key="last_modified")
     Variable.set(LAST_INGESTED_VAR, last_modified or datetime.now(timezone.utc).isoformat())
     print(f"[rag_ingestion] Ingestion prod terminée, {LAST_INGESTED_VAR}={last_modified}")
 
 
-def _run_ingestion(knowledge_dir: str, weaviate_host: str, weaviate_port: int, api_key: str = "") -> None:
-    os.environ["WEAVIATE_HOST"] = weaviate_host
-    os.environ["WEAVIATE_PORT"] = str(weaviate_port)
-    os.environ["WEAVIATE_GRPC_PORT"] = str(WEAVIATE_GRPC_PORT)
-    os.environ["WEAVIATE_URL"] = ""  # force la connexion locale (host/port) plutôt que cloud
-    os.environ["WEAVIATE_API_KEY"] = api_key or ""
+def _run_ingestion(knowledge_dir: str, database_url: str) -> None:
+    os.environ["DATABASE_URL"] = database_url
 
     from app.ingestion import run_ingestion
 
     n_chunks = run_ingestion(knowledge_dir=Path(knowledge_dir))
-    print(f"[rag_ingestion] {n_chunks} chunk(s) ingéré(s) dans weaviate://{weaviate_host}:{weaviate_port}")
+    print(f"[rag_ingestion] {n_chunks} chunk(s) ingéré(s) dans la branche Neon ciblée.")

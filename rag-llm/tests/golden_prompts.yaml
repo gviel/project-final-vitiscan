@@ -3,7 +3,7 @@
 # Chaque cas appelle POST /solutions avec un cnn_label réel (ou un alias hérité pour vérifier la
 # compat ascendante) et vérifie :
 # - que la réponse n'est PAS le message de repli générique (sauf `expect_fallback: true`, réservé
-#   au cas volontairement supprimé "mites"), preuve que la fiche a bien été retrouvée dans Weaviate
+#   au cas volontairement supprimé "mites"), preuve que la fiche a bien été retrouvée dans pgvector
 # - que le dosage renvoyé par l'API correspond exactement à un appel direct de compute_dosage()
 #   (même logique, chemin HTTP vs. import direct — détecte toute divergence de résolution du label)
 # - qu'au moins un des mots-clés attendus apparaît dans le diagnostic généré par le LLM (mots-clés

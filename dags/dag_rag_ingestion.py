@@ -2,9 +2,9 @@
 DAG Airflow — Ingestion des documents de connaissance RAG (specs.md, Partie 1).
 
 Détecte les nouveaux documents markdown dans S3 (par rapport à la dernière exécution réussie),
-les ingère dans un Weaviate de test, rejoue les golden prompts (porte de qualité) contre ce
-Weaviate de test, et seulement si tout est OK, ingère les documents dans le Weaviate de prod
-utilisé par rag-llm/.
+les ingère dans la branche Neon (Postgres/pgvector) de test, rejoue les golden prompts (porte de
+qualité) contre cette branche de test, et seulement si tout est OK, ingère les documents dans la
+branche Neon de prod utilisée par rag-llm/.
 
 Chaîne :
   branch_check_new_docs (BranchPythonOperator) :
@@ -30,7 +30,7 @@ default_args = {
 
 with DAG(
     dag_id="dag_rag_ingestion",
-    description="Ingère les nouveaux documents de connaissance RAG (S3 -> Weaviate test -> golden prompts -> Weaviate prod)",
+    description="Ingère les nouveaux documents de connaissance RAG (S3 -> Neon test -> golden prompts -> Neon prod)",
     schedule=DAG_RAG_INGESTION_CRON,
     start_date=datetime(2024, 1, 1),
     catchup=False,

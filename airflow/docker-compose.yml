@@ -12,11 +12,11 @@
 #   - port hôte de l'apiserver : 8090 (8080 déjà pris par Fraud Detection)
 #   - noms de volumes distincts
 #
-# Le DAG dag_rag_ingestion (dags/dag_rag_ingestion.py) ingère dans un Weaviate "test" propre à
-# cette stack (service weaviate-test ci-dessous), puis si OK dans le Weaviate "prod" de la stack
-# applicative principale (docker-compose.yml racine) — projet Compose distinct, donc pas de DNS
-# par nom de service : on le rejoint via son port publié sur l'hôte (host.docker.internal, cf.
-# extra_hosts ci-dessous et dags/config.py).
+# Le DAG dag_rag_ingestion (dags/dag_rag_ingestion.py) ingère dans une branche Neon (Postgres/
+# pgvector) "test", puis si OK dans la branche Neon "prod" utilisée par la stack applicative
+# principale — Neon est joignable directement par DATABASE_URL, pas besoin de résolution DNS par
+# nom de service ni de host.docker.internal (contrairement à l'ancien Weaviate "prod" du
+# docker-compose.yml racine, cf. service weaviate-test ci-dessous, en sommeil).
 #
 # Usage : ./start.sh | ./stop.sh
 
@@ -49,14 +49,10 @@ x-airflow-common:
     RAG_S3_BUCKET: "${RAG_S3_BUCKET:-s3-vitiscan-data}"
     RAG_S3_PREFIX: "${RAG_S3_PREFIX:-knowledge/current/}"
     RAG_LLM_DIR: "/opt/airflow/rag-llm"
-    WEAVIATE_TEST_HOST: "weaviate-test"
-    WEAVIATE_TEST_PORT: "8080"
-    WEAVIATE_PROD_HOST: "${WEAVIATE_PROD_HOST:-host.docker.internal}"
-    WEAVIATE_PROD_PORT: "${WEAVIATE_PROD_PORT:-8081}"
-    # Clé API du Weaviate "prod" (accès anonyme désactivé côté docker-compose.yml racine) - même
-    # valeur que .env racine / rag-llm/.env.
-    WEAVIATE_API_KEY: "${WEAVIATE_API_KEY:?WEAVIATE_API_KEY manquant, cf. .env.template}"
-    WEAVIATE_GRPC_PORT: "50051"
+    # Branches Neon (Postgres/pgvector) test/prod, créées manuellement au préalable (branching
+    # natif Neon) - remplacent les 2 instances Weaviate test/prod.
+    DATABASE_URL_TEST: "${DATABASE_URL_TEST:?DATABASE_URL_TEST manquant, cf. .env.template}"
+    DATABASE_URL_PROD: "${DATABASE_URL_PROD:?DATABASE_URL_PROD manquant, cf. .env.template}"
     DAG_RAG_INGESTION_CRON: "${DAG_RAG_INGESTION_CRON:-0 * * * *}"
     # Optionnel : sans HF_API_TOKEN, la porte de qualité golden_prompts_gate fonctionne quand même
     # (résolution du nommage + dosage vérifiés), mais la vérification des mots-clés du diagnostic
@@ -93,10 +89,11 @@ x-airflow-common:
     - ./logs:/opt/airflow/logs
     - ./config:/opt/airflow/config
     - ./plugins:/opt/airflow/plugins
-  extra_hosts:
-    # Permet de joindre le Weaviate "prod" (docker-compose.yml racine, projet Compose distinct)
-    # via son port publié sur l'hôte - cf. dags/config.py WEAVIATE_PROD_HOST.
-    - "host.docker.internal:host-gateway"
+  # EN SOMMEIL depuis la migration pgvector — servait à joindre le Weaviate "prod" du
+  # docker-compose.yml racine (projet Compose distinct) via son port publié sur l'hôte ; Neon est
+  # désormais joignable directement par DATABASE_URL_PROD, plus besoin de host.docker.internal.
+  # extra_hosts:
+  #   - "host.docker.internal:host-gateway"
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -121,28 +118,30 @@ services:
       start_period: 5s
     restart: always
 
-  # Weaviate de test, isolé, propre à cette stack (le Weaviate "prod" est dans docker-compose.yml
-  # racine - cf. commentaire en tête de fichier)
-  weaviate-test:
-    image: semitechnologies/weaviate:1.27.4
-    container_name: vitiscan_weaviate_test
-    environment:
-      QUERY_DEFAULTS_LIMIT: 20
-      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
-      PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
-      DEFAULT_VECTORIZER_MODULE: "none"
-      CLUSTER_HOSTNAME: "vitiscan-weaviate-test"
-    ports:
-      - "8091:8080"
-      - "50052:50051"
-    volumes:
-      - vitiscan_weaviate_test_data:/var/lib/weaviate
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
-      interval: 10s
-      retries: 5
-      start_period: 20s
-    restart: unless-stopped
+  # EN SOMMEIL depuis la migration pgvector — l'isolation "test" est désormais assurée par une
+  # vraie branche Neon (DATABASE_URL_TEST), plus besoin d'un Weaviate local dédié à cette stack.
+  # Conservé commenté pour retour arrière éventuel.
+  #
+  # weaviate-test:
+  #   image: semitechnologies/weaviate:1.27.4
+  #   container_name: vitiscan_weaviate_test
+  #   environment:
+  #     QUERY_DEFAULTS_LIMIT: 20
+  #     AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+  #     PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
+  #     DEFAULT_VECTORIZER_MODULE: "none"
+  #     CLUSTER_HOSTNAME: "vitiscan-weaviate-test"
+  #   ports:
+  #     - "8091:8080"
+  #     - "50052:50051"
+  #   volumes:
+  #     - vitiscan_weaviate_test_data:/var/lib/weaviate
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -qO- http://localhost:8080/v1/.well-known/ready || exit 1"]
+  #     interval: 10s
+  #     retries: 5
+  #     start_period: 20s
+  #   restart: unless-stopped
 
   airflow-apiserver:
     <<: *airflow-common
@@ -235,4 +234,5 @@ services:
 
 volumes:
   vitiscan_airflow_db_data:
-  vitiscan_weaviate_test_data:
+  # EN SOMMEIL depuis la migration pgvector (cf. service weaviate-test ci-dessus, commenté).
+  # vitiscan_weaviate_test_data:

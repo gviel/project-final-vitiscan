@@ -4,13 +4,10 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 import frontmatter
-import weaviate
-import weaviate.classes as wvc
 
-from app.weaviate_client import weaviate_client, get_embedder
+from app.vector_store import db_client, get_embedder, TABLE_NAME
 
-# Nom de la collection dans Weaviate
-COLLECTION_NAME = "VitiScanKnowledge"
+SCHEMA_SQL_PATH = Path(__file__).resolve().parents[1] / "db" / "schema.sql"
 
 
 def load_markdown_files(knowledge_dir: Path) -> List[Dict[str, Any]]:
@@ -56,28 +53,11 @@ def split_markdown_sections(content: str) -> List[Dict[str, str]]:
     return sections
 
 
-def ensure_collection(client: weaviate.WeaviateClient):
-    """Crée la collection VitiScanKnowledge si elle n'existe pas déjà (vectors: self_provided)."""
-    collections = client.collections
-    try:
-        coll = collections.get(COLLECTION_NAME)
-        _ = coll.config.get()
-        return coll
-    except Exception:
-        return collections.create(
-            name=COLLECTION_NAME,
-            vector_config=wvc.config.Configure.Vectors.self_provided(),
-            properties=[
-                wvc.config.Property(name="text", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="section", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="disease_id", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="cnn_label", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="nom_fr", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="type", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="categorie", data_type=wvc.config.DataType.TEXT),
-                wvc.config.Property(name="mode_conduite", data_type=wvc.config.DataType.TEXT),
-            ],
-        )
+def ensure_schema(conn) -> None:
+    """Crée la table vitiscan_knowledge et ses index si elles n'existent pas déjà (idempotent)."""
+    with conn.cursor() as cur:
+        cur.execute(SCHEMA_SQL_PATH.read_text())
+    conn.commit()
 
 
 def build_chunk_objects(fiches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -91,7 +71,7 @@ def build_chunk_objects(fiches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for fiche in fiches:
         meta = fiche["meta"]
         sections = split_markdown_sections(fiche["content"])
-        mode_conduite_str = ", ".join(meta.get("mode_conduite") or [])
+        mode_conduite = meta.get("mode_conduite") or []
 
         for section in sections:
             all_chunks.append({
@@ -102,41 +82,47 @@ def build_chunk_objects(fiches: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "nom_fr": meta.get("nom_fr"),
                 "type": meta.get("type"),
                 "categorie": meta.get("categorie"),
-                "mode_conduite": mode_conduite_str,
+                "mode_conduite": mode_conduite,
             })
 
     return all_chunks
 
 
-def ingest_chunks_into_weaviate(chunks: List[Dict[str, Any]]) -> None:
-    """Envoie tous les chunks dans Weaviate avec des embeddings SentenceTransformer."""
-    with weaviate_client() as client:
-        collection = ensure_collection(client)
-
-        print(f"[INGESTION] Nombre de chunks à indexer: {len(chunks)}")
+def ingest_chunks_into_db(chunks: List[Dict[str, Any]]) -> None:
+    """Envoie tous les chunks dans Postgres/pgvector avec des embeddings SentenceTransformer."""
+    with db_client() as conn:
+        ensure_schema(conn)
         embedder = get_embedder()
 
-        with collection.batch.dynamic() as batch:
+        print(f"[INGESTION] Nombre de chunks à indexer: {len(chunks)}")
+
+        with conn.cursor() as cur:
+            # Ré-ingestion complète : on repart d'une table vide pour éviter l'accumulation de
+            # doublons à chaque exécution du DAG (limite déjà présente côté Weaviate, corrigée ici).
+            cur.execute(f"TRUNCATE TABLE {TABLE_NAME};")
+
             for idx, chunk in enumerate(chunks, start=1):
                 vector = embedder.encode(chunk["text"]).tolist()
-                batch.add_object(
-                    properties={k: chunk[k] for k in (
-                        "text", "section", "disease_id", "cnn_label", "nom_fr", "type", "categorie", "mode_conduite"
-                    )},
-                    vector=vector,
+                cur.execute(
+                    f"""
+                    INSERT INTO {TABLE_NAME}
+                        (text, section, disease_id, cnn_label, nom_fr, type, categorie, mode_conduite, embedding)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        chunk["text"], chunk["section"], chunk["disease_id"], chunk["cnn_label"],
+                        chunk["nom_fr"], chunk["type"], chunk["categorie"], chunk["mode_conduite"], vector,
+                    ),
                 )
                 if idx % 20 == 0:
                     print(f"[INGESTION] {idx} chunks envoyés...")
 
-            if batch.number_errors > 0:
-                print(f"[INGESTION] Erreurs lors de l'import: {batch.number_errors}")
-                print(batch.failed_objects)
-
+        conn.commit()
         print("[INGESTION] Import terminé.")
 
 
 def run_ingestion(knowledge_dir: Optional[Path] = None) -> int:
-    """Point d'entrée réutilisable (CLI, script, futur DAG Airflow). Retourne le nombre de chunks indexés."""
+    """Point d'entrée réutilisable (CLI, script, DAG Airflow). Retourne le nombre de chunks indexés."""
     if knowledge_dir is None:
         knowledge_dir = Path(__file__).resolve().parents[1] / "data" / "knowledge"
 
@@ -150,7 +136,7 @@ def run_ingestion(knowledge_dir: Optional[Path] = None) -> int:
         print("[INGESTION] Exemple de chunk:")
         print(json.dumps(chunks[0], indent=2, ensure_ascii=False))
 
-    ingest_chunks_into_weaviate(chunks)
+    ingest_chunks_into_db(chunks)
     return len(chunks)
 
 

@@ -10,10 +10,10 @@ tournent en même temps sur la même machine.
 - `dag_rag_ingestion` — détecte les nouveaux documents markdown dans
   `s3://RAG_S3_BUCKET/RAG_S3_PREFIX` (par défaut `s3-vitiscan-data/knowledge/current/`), les
   télécharge dans `work/rag-knowledge/` (cf. section "Répertoire de travail" ci-dessous) et les
-  ingère dans un Weaviate de test (`weaviate-test`, propre à cette stack), rejoue les golden
-  prompts (`rag-llm/tests/golden_prompts.yaml`) contre ce Weaviate de test comme porte de qualité,
-  et seulement si tout est OK, ingère les documents dans le Weaviate de prod (celui du
-  `docker-compose.yml` racine, rejoint via `host.docker.internal`).
+  ingère dans la branche Neon (Postgres/pgvector) de test (`DATABASE_URL_TEST`), rejoue les golden
+  prompts (`rag-llm/tests/golden_prompts.yaml`) contre cette branche de test comme porte de
+  qualité, et seulement si tout est OK, ingère les documents dans la branche Neon de prod
+  (`DATABASE_URL_PROD`, celle utilisée par `rag-llm/` en production).
 - `dag_train_model` — sweep multi-modèles CNN : lit `../training/config.yml::models_to_run`
   (monté en lecture seule) et lance un `train.py` en subprocess par modèle (une tâche Airflow par
   modèle, exécution séquentielle). Déclenchement manuel uniquement (`schedule=None`). Dataset
@@ -46,10 +46,12 @@ UI Airflow : http://localhost:8090 (airflow / airflow)
 ./stop.sh
 ```
 
-## Pourquoi `host.docker.internal` pour joindre le Weaviate de prod ?
+## Pourquoi 2 branches Neon plutôt que 2 instances Weaviate ?
 
 `airflow/docker-compose.yml` et le `docker-compose.yml` racine sont deux projets Compose
-distincts (réseaux Docker séparés) : pas de résolution DNS par nom de service entre eux. Le plus
-simple ici est de rejoindre le Weaviate de prod via son port publié sur l'hôte
-(`host.docker.internal:8081`, cf. `extra_hosts` dans `docker-compose.yml`), plutôt que de
-partager un réseau Docker externe entre les deux stacks.
+distincts (réseaux Docker séparés) : pas de résolution DNS par nom de service entre eux. Avant la
+migration pgvector, le DAG rejoignait le Weaviate "prod" du `docker-compose.yml` racine via son
+port publié sur l'hôte (`host.docker.internal`). Neon est joignable directement par
+`DATABASE_URL_TEST`/`DATABASE_URL_PROD` (2 branches Neon créées manuellement au préalable,
+branching natif Neon), donc plus besoin de `host.docker.internal` ni de partager un réseau Docker
+externe entre les deux stacks.

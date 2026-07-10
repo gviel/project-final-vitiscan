@@ -774,6 +774,29 @@ réel) — à compléter avant utilisation :
   cf. `training/README.md`) pour un run local (venv) — via le DAG `dag_train_model`, il est
   téléchargé automatiquement dans le volume `vitiscan_training_data` au premier déclenchement.
 
+## Migration Weaviate -> Postgres/pgvector (Neon) + mise en sommeil ngrok
+
+Le plan gratuit Weaviate Cloud était peu fiable (base détruite après inactivité), et le montage de
+repli (Weaviate local + tunnel ngrok pour simuler la prod sur Render, cf.
+`docs/simulation-prod-ngrok.md`) s'est révélé non fonctionnel (tunnel TCP gRPC ne routant pas le
+trafic, cf. ancienne section "Blocage ngrok TCP" de `docs/deploiement-render-streamlit.md`).
+
+Remplacement par Neon (Postgres managé + extension `pgvector`) : persistant, gratuit, joignable
+directement depuis Render via `DATABASE_URL`, sans tunnel. `rag-llm/app/weaviate_client.py` est
+remplacé par `rag-llm/app/vector_store.py` (même signature `search_treatment_chunks()`, donc
+aucun changement dans `rag_pipeline.py` au-delà du nom du context manager). La collection
+`VitiScanKnowledge` devient la table `vitiscan_knowledge` (`rag-llm/db/schema.sql`), avec un index
+HNSW en distance cosine — équivalent du comportement par défaut de Weaviate. Le garde-fou
+test/prod du DAG `dag_rag_ingestion` (ingestion test -> golden prompts -> promotion prod) est
+reproduit via le branching natif Neon (branche `test` / branche `prod`) plutôt que 2 instances
+Weaviate distinctes.
+
+Le composant ngrok (config `ngrok/ngrok.yml`, service Docker, variables `WEAVIATE_CUSTOM_*` /
+`NGROK_AUTHTOKEN`) est mis en sommeil (code commenté, pas supprimé) plutôt que retiré, au cas où
+il faille le réactiver pour un autre usage. Testé en conditions réelles sur une base Neon avant
+implémentation (`CREATE EXTENSION vector`, index HNSW, opérateur `<=>` à la dimension réelle du
+projet, `VECTOR(384)`) : fonctionne sans limitation particulière.
+
 ## Reste à faire (hors scope de cette passe)
 
 - ~~Étape 8 : tests "golden prompts" (yaml maladies/réponses attendues) pour `rag-llm/`~~ — fait
