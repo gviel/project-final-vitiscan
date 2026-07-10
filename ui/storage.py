@@ -81,12 +81,15 @@ def compute_content_hash(file_bytes: bytes) -> str:
     return hashlib.sha256(file_bytes).hexdigest()
 
 
-def build_s3_key(content_hash: str, filename: str) -> str:
-    """user-photos/YYYY/MM/DD/<hash>_<uuid>.<ext> - horodaté pour lister/paginer facilement par
-    date dans labeling/, hash dans le nom pour un repérage visuel rapide des doublons."""
+def build_s3_key(content_hash: str, filename: str, status: str = "incoming") -> str:
+    """user-photos/<status>/YYYY/MM/DD/<hash>_<uuid>.<ext> - le segment <status> trie
+    physiquement les photos par étape du tri (cf. labeling/db.py::accept_photo/reject_photo, qui
+    déplacent l'objet S3 à chaque changement de statut), même principe que knowledge/current/ vs
+    knowledge/new/ pour le RAG. Une photo entre toujours en "incoming" (seul appelant,
+    save_submission, ne passe pas d'autre valeur)."""
     ext = os.path.splitext(filename)[1].lower() or ".jpg"
     today = datetime.utcnow()
-    return f"{PHOTOS_S3_PREFIX}{today:%Y/%m/%d}/{content_hash}_{uuid.uuid4().hex}{ext}"
+    return f"{PHOTOS_S3_PREFIX}{status}/{today:%Y/%m/%d}/{content_hash}_{uuid.uuid4().hex}{ext}"
 
 
 def upload_photo_to_s3(file_bytes: bytes, s3_key: str) -> None:

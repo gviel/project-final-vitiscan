@@ -70,10 +70,12 @@ def render_filters(conn) -> dict:
 
     model_version = st.sidebar.selectbox("Version du modèle", options=["Toutes"] + model_versions)
     predicted_label = st.sidebar.selectbox("Maladie prédite", options=["Toutes"] + predicted_labels)
-    labeled_status = st.sidebar.selectbox(
-        "Statut de labellisation",
-        options=["all", "unlabeled", "labeled"],
-        format_func=lambda x: {"all": "Toutes", "unlabeled": "Non labellisées", "labeled": "Labellisées"}[x],
+    status = st.sidebar.selectbox(
+        "Statut",
+        options=["all", "incoming", "accepted", "rejected"],
+        format_func=lambda x: {
+            "all": "Toutes", "incoming": "Incoming", "accepted": "Acceptées", "rejected": "Rejetées",
+        }[x],
     )
     only_duplicates = st.sidebar.checkbox("Doublons uniquement (même photo envoyée plusieurs fois)")
 
@@ -81,14 +83,14 @@ def render_filters(conn) -> dict:
     # Pas d'authentification dans ce projet : champ libre, non fiable en intégrité (cf.
     # labeling/README.md).
     st.session_state["labeled_by"] = st.sidebar.text_input(
-        "Votre nom/pseudo (enregistré avec chaque label)",
+        "Votre nom/pseudo (enregistré avec chaque décision)",
         value=st.session_state.get("labeled_by", ""),
     )
 
     return {
         "model_version": None if model_version == "Toutes" else model_version,
         "predicted_label": None if predicted_label == "Toutes" else predicted_label,
-        "labeled_status": labeled_status,
+        "status": None if status == "all" else status,
         "only_duplicates": only_duplicates,
     }
 
@@ -116,32 +118,45 @@ def render_photo_card(conn, photo: dict, disease_translation: dict) -> None:
             st.caption(f"Modèle : {photo['model_version']} — soumis le {photo['submitted_at']}")
             if photo["gps_lat"] is not None and photo["gps_lon"] is not None:
                 st.caption(f"GPS : {photo['gps_lat']:.5f}, {photo['gps_lon']:.5f}")
-            if photo["human_label"]:
-                st.caption(
-                    f"Déjà labellisé : "
-                    f"{disease_translation.get(photo['human_label'], photo['human_label'])} "
-                    f"(par {photo['labeled_by'] or '?'})"
+
+            status = photo["status"]
+            if status == "incoming":
+                options = list(disease_translation.keys()) or [predicted]
+                default_index = options.index(predicted) if predicted in options else 0
+
+                selected = st.selectbox(
+                    "Label humain",
+                    options=options,
+                    format_func=lambda x: disease_translation.get(x, x),
+                    index=default_index,
+                    key=f"label_select_{photo['id']}",
                 )
-
-            options = list(disease_translation.keys()) or [predicted]
-            if photo["human_label"] in options:
-                default_index = options.index(photo["human_label"])
-            elif predicted in options:
-                default_index = options.index(predicted)
+                btn_accept, btn_reject = st.columns(2)
+                labeled_by = st.session_state.get("labeled_by") or "inconnu"
+                if btn_accept.button("✅ Accepter", key=f"accept_{photo['id']}", type="primary"):
+                    try:
+                        db.accept_photo(conn, photo["id"], selected, labeled_by)
+                        st.success("Photo acceptée dans le dataset.")
+                        st.rerun()
+                    except Exception:
+                        logger.exception(f"Échec accept_photo pour la photo {photo['id']}")
+                        st.error("Échec de l'acceptation (S3/Neon) - réessayer.")
+                if btn_reject.button("❌ Rejeter", key=f"reject_{photo['id']}"):
+                    try:
+                        db.reject_photo(conn, photo["id"], labeled_by, selected)
+                        st.success("Photo rejetée.")
+                        st.rerun()
+                    except Exception:
+                        logger.exception(f"Échec reject_photo pour la photo {photo['id']}")
+                        st.error("Échec du rejet (S3/Neon) - réessayer.")
             else:
-                default_index = 0
-
-            selected = st.selectbox(
-                "Label humain",
-                options=options,
-                format_func=lambda x: disease_translation.get(x, x),
-                index=default_index,
-                key=f"label_select_{photo['id']}",
-            )
-            if st.button("Enregistrer le label", key=f"save_label_{photo['id']}"):
-                db.set_human_label(conn, photo["id"], selected, st.session_state.get("labeled_by") or "inconnu")
-                st.success("Label enregistré.")
-                st.rerun()
+                badge = "✅ Acceptée" if status == "accepted" else "❌ Rejetée"
+                st.markdown(f"**{badge}**")
+                if photo["human_label"]:
+                    st.caption(
+                        f"Label : {disease_translation.get(photo['human_label'], photo['human_label'])} "
+                        f"(par {photo['labeled_by'] or '?'} le {photo['labeled_at']})"
+                    )
 
 
 def main():
@@ -168,7 +183,7 @@ def main():
             conn,
             model_version=filters["model_version"],
             predicted_label=filters["predicted_label"],
-            labeled_status=filters["labeled_status"],
+            status=filters["status"],
             only_duplicates=filters["only_duplicates"],
             page=st.session_state["labeling_page"],
             page_size=PAGE_SIZE,

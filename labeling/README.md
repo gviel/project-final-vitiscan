@@ -3,9 +3,15 @@
 Dashboard Streamlit interne pour revoir les photos de feuilles de vigne soumises par les
 viticulteurs via `ui/` (cf. `ui/storage.py`) : liste/filtre les photos stockées sur S3 et en Neon
 (`vitiscan_photos`, schéma dans `db/schema.sql`), signale les doublons (même photo envoyée
-plusieurs fois), permet d'assigner un label humain à chaque photo, et affiche le taux d'accord
-(drift) entre la prédiction du modèle en prod et ce label humain, globalement et par
-`model_version`.
+plusieurs fois), permet de trier chaque photo `incoming` en **acceptée** (label confirmé, entre
+dans le dataset) ou **rejetée** (label optionnel), et affiche le taux d'accord (drift) entre la
+prédiction du modèle en prod et le label humain, globalement et par `model_version`.
+
+Le statut (`incoming` / `accepted` / `rejected`) est reflété physiquement dans S3 : chaque décision
+déplace l'objet du préfixe `PHOTOS_S3_PREFIX/incoming/...` vers `PHOTOS_S3_PREFIX/accepted/...` ou
+`PHOTOS_S3_PREFIX/rejected/...` (cf. `db.py::accept_photo`/`reject_photo`), même principe que
+`knowledge/current/` vs `knowledge/new/` pour le RAG — prépare un futur DAG Airflow qui pourra
+lister directement `accepted/` pour construire le dataset de ré-entraînement (cf. `specs.md`).
 
 `db/schema.sql` est la **source unique** du schéma `vitiscan_photos`, également utilisée par
 `ui/storage.py` (copiée à l'image au build de `ui/Dockerfile`, ou lue directement dans le dépôt
@@ -32,6 +38,9 @@ Voir le `docker-compose.yml` racine (service `labeling`) pour lancer l'ensemble 
 
 - **Pas d'authentification** (aucune dans ce projet) : le champ "labeled_by" est une saisie libre,
   non fiable pour l'intégrité/traçabilité des labels.
+- **Pas de verrou de concurrence** sur accepter/rejeter : si deux personnes traitent la même photo
+  `incoming` en même temps, la seconde décision écrase la première (dernier écrit gagnant) - pas de
+  problème pratique pour un usage à une seule personne/petite équipe séquentielle.
 - **Bug EXIF GPS hérité de `ui/app.py::get_exif_data`** : `GPSLatitudeRef`/`GPSLongitudeRef` sont
   ignorés (toujours traité comme Nord/Est), non corrigé dans ce composant.
 - **Déploiement** : ce composant n'est pour l'instant testé qu'en local (docker-compose), pas

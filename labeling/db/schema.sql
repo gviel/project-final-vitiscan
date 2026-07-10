@@ -45,3 +45,22 @@ CREATE INDEX IF NOT EXISTS vitiscan_photos_predicted_label_idx ON vitiscan_photo
 CREATE INDEX IF NOT EXISTS vitiscan_photos_submitted_at_idx    ON vitiscan_photos (submitted_at DESC);
 -- Filtre "non labellisé" fréquent dans le dashboard : index partiel, léger et ciblé.
 CREATE INDEX IF NOT EXISTS vitiscan_photos_unlabeled_idx ON vitiscan_photos (submitted_at) WHERE human_label IS NULL;
+
+-- Tri physique des photos dans S3 (incoming/accepted/rejected comme segment de préfixe, cf.
+-- ui/storage.py::build_s3_key et labeling/db.py::_replace_status/_move_s3_object) - même principe
+-- que knowledge/current/ vs knowledge/new/ pour le RAG. ADD COLUMN/CONSTRAINT IF NOT EXISTS :
+-- upgrade idempotent d'une table déjà créée par la version précédente de ce fichier (pas de
+-- système de migration versionné dans ce projet, cf. commentaire en tête de fichier).
+ALTER TABLE vitiscan_photos ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'incoming';
+-- Postgres ne supporte pas "ADD CONSTRAINT IF NOT EXISTS" (contrairement à ADD COLUMN) - bloc
+-- DO/EXCEPTION comme équivalent idempotent, confirmé nécessaire en testant contre pg18
+-- ("syntax error at or near EXISTS").
+DO $$
+BEGIN
+    ALTER TABLE vitiscan_photos ADD CONSTRAINT vitiscan_photos_status_check
+        CHECK (status IN ('incoming', 'accepted', 'rejected'));
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE INDEX IF NOT EXISTS vitiscan_photos_status_idx ON vitiscan_photos (status);
