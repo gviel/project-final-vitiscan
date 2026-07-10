@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 import logging
 
+import storage
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -205,6 +207,14 @@ def main():
             on_change=reset_form_and_containers,
         )
 
+        # calculé ici (avant le bloc submit) pour être disponible à la fois pour la sauvegarde
+        # storage.save_submission (ci-dessous) et pour la carte Folium (col2), sans dupliquer le
+        # calcul EXIF.
+        lon, lat, date = get_exif_data(uploaded_file)
+        st.session_state.img_long = lon
+        st.session_state.img_lat = lat
+        st.session_state.img_date = date
+
         if uploaded_file:
             st.image(uploaded_file, caption="Image téléchargée", width=300)
         else:
@@ -231,12 +241,26 @@ def main():
                     with st.expander("DEBUG Réponse API diagno"):
                         st.code(json.dumps(diagnostic, indent=2), language="json")
 
+                if 'predictions' in diagnostic:
+                    # (0.0, 0.0) = fallback de get_exif_data en l'absence de tag GPSInfo, pas une
+                    # vraie coordonnée - ne pas la persister comme telle (cf. labeling/db/schema.sql).
+                    has_gps = (lat, lon) != (0.0, 0.0)
+                    photo_id = storage.save_submission(
+                        file_bytes=uploaded_file.getvalue(),
+                        filename=uploaded_file.name,
+                        diagnostic=diagnostic,
+                        gps_lat=lat if has_gps else None,
+                        gps_lon=lon if has_gps else None,
+                        exif_captured_at=date,
+                    )
+                    if photo_id is None:
+                        st.warning(
+                            "Photo non sauvegardée pour labellisation (problème technique), "
+                            "diagnostic non affecté."
+                        )
+
     with col2:
         st.subheader("Carte des Parcelles")
-        lon, lat, date = get_exif_data(uploaded_file)
-        st.session_state.img_long = lon
-        st.session_state.img_lat = lat
-        st.session_state.img_date = date
 
         if lon is not None and lat is not None:
             m = folium.Map(location=[lat, lon], zoom_start=12, height=600, width=300, tiles=MAP_STYLE[0])

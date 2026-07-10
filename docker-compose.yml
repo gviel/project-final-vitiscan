@@ -99,6 +99,28 @@ services:
       - rag-llm
     restart: unless-stopped
 
+  labeling:
+    build:
+      # context = labeling/ (contrairement à ui/, ce composant n'a pas besoin de fichiers hors de
+      # son propre dossier : db/schema.sql lui appartient, cf. labeling/README.md).
+      context: ./labeling
+      dockerfile: Dockerfile
+    container_name: vitiscan_labeling
+    env_file:
+      - labeling/.env
+    environment:
+      API_DIAGNO: http://api:4000
+      # override : même base locale que rag-llm (tables différentes, cf. labeling/db/schema.sql)
+      DATABASE_URL: "postgresql://vitiscan:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant, cf. .env.template racine}@postgres:5432/vitiscan-rag-db-dev"
+    ports:
+      - "8503:8501"    # 4000=api, 9000=rag-llm, 8502=ui, 5433=postgres déjà pris
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+
   # EN SOMMEIL depuis la migration pgvector — le Weaviate qu'il exposait n'existe plus en dev
   # local (remplacé par le service "postgres" ci-dessus, pas besoin de tunnel pour Render
   # puisque Neon est joignable directement par DATABASE_URL). Conservé commenté pour retour
