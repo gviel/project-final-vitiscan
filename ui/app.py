@@ -33,7 +33,11 @@ OPTIONS_SEVERITY = {"faible": "Faible", "modérée": "Modérée", "forte": "Fort
 MAP_STYLE = ["OpenStreetMap", "CartoDB Positron", "CartoDB Voyager"]
 
 HEADERS = {
-    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    # Pas d'Accept-Encoding manuel : requests/urllib3 le gèrent automatiquement et n'annoncent que
+    # les encodages qu'ils savent réellement décoder. Forcer "br"/"zstd" ici faisait croire à
+    # Cloudflare (devant Render) qu'on pouvait les décoder, alors que le paquet `brotli` n'est pas
+    # installé - la réponse revenait alors compressée en brotli, non décodée, et
+    # response.json() plantait avec JSONDecodeError sur du contenu binaire.
     'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:145.0) Gecko/20100101 Firefox/145.0'
 }
 NOW = datetime.now().strftime("%Y-%m-%d")
