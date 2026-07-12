@@ -11,8 +11,10 @@
 # lui non représentable en Blueprint, implicite au Workspace dans lequel on connecte ce dépôt
 # depuis le Dashboard), avec un `environment` par service selon son rôle :
 # - "Production" : vitiscan-api + vitiscan-rag-llm (branche Neon prod, cf. plus bas).
-# - "Test" : vitiscan-rag-llm-test (branche Neon test), créé à la main dans l'UI Render avant ce
-#   commit - le nom doit rester "Test" pour que le Blueprint s'y rattache au lieu d'en recréer un.
+# - "Validation" : vitiscan-rag-llm-validation (branche Neon "validation" - étape de validation
+#   pré-prod, pas un environnement de déploiement séparé), créé à la main dans l'UI Render avant ce
+#   commit - le nom doit rester "Validation" pour que le Blueprint s'y rattache au lieu d'en
+#   recréer un.
 
 projects:
   - name: jedha-AIA-Vitiscan
@@ -91,18 +93,19 @@ projects:
               - key: DATABASE_URL
                 sync: false
 
-      - name: Test
+      - name: Validation
         services:
           # Cible HTTP pour la porte de qualité golden_prompts_gate
           # (dags/tasks/rag_ingestion.py) : dag_rag_ingestion ingère les nouveaux documents dans
-          # la branche Neon "test" puis interroge ce service (RAG_LLM_TEST_URL, cf.
+          # la branche Neon "validation" puis interroge ce service (RAG_LLM_VALIDATION_URL, cf.
           # airflow/.env.template) via /solutions pour rejouer les golden prompts contre le vrai
           # service déployé (Dockerfile, env Render...), pas seulement contre les données -
           # détecte aussi les bugs de déploiement (ex. rootDir/OOM, cf. docs/refactoring.md), pas
           # uniquement les régressions de contenu. Jamais exposé aux utilisateurs finaux ni
           # référencé par ui/ - seule différence avec vitiscan-rag-llm : DATABASE_URL pointe sur
-          # la branche Neon "test".
-          - name: vitiscan-rag-llm-test
+          # la branche Neon "validation" (étape de validation pré-prod, pas un vrai environnement
+          # de déploiement séparé).
+          - name: vitiscan-rag-llm-validation
             type: web
             runtime: docker
             plan: free
@@ -117,6 +120,7 @@ projects:
                 sync: false
               - key: HF_MODEL_ID
                 value: meta-llama/Meta-Llama-3-8B-Instruct
-              # Branche Neon "test" (pas "prod") - URL pooled, cf. dags/config.py::DATABASE_URL_TEST.
+              # Branche Neon "validation" (pas "prod") - URL pooled, cf.
+              # dags/config.py::DATABASE_URL_VALIDATION.
               - key: DATABASE_URL
                 sync: false

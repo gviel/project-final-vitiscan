@@ -9,7 +9,7 @@ from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 
-# APP_ENV choisit le fichier d'environnement (rag-llm/.env.dev|.env.test|.env.prod, cf.
+# APP_ENV choisit le fichier d'environnement (rag-llm/.env.dev|.env.validation|.env.prod, cf.
 # .env.template) - même convention que Project_03_Fraud_Detection/airflow/start.sh. En Docker,
 # les variables sont déjà injectées par docker-compose (env_file/environment), donc ce
 # load_dotenv() est surtout utile pour lancer l'app/les scripts directement depuis l'hôte.
@@ -37,9 +37,10 @@ def get_embedder() -> SentenceTransformer:
 def db_client():
     """
     Connexion unique via DATABASE_URL (chaîne postgresql://... complète), quel que soit
-    l'environnement (APP_ENV=dev -> postgres local docker-compose, test/prod -> branche Neon
-    correspondante, cf. .env.dev/.env.test/.env.prod). Privilégier l'URL "pooled" fournie par
-    Neon (hôte suffixé -pooler) sur test/prod, ce module ouvrant une connexion courte par requête.
+    l'environnement (APP_ENV=dev -> postgres local docker-compose, validation/prod -> branche Neon
+    correspondante, cf. .env.dev/.env.validation/.env.prod). Privilégier l'URL "pooled" fournie par
+    Neon (hôte suffixé -pooler) sur validation/prod, ce module ouvrant une connexion courte par
+    requête.
     """
     database_url = (os.getenv("DATABASE_URL") or "").strip()
     if not database_url:

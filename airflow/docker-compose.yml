@@ -13,7 +13,7 @@
 #   - noms de volumes distincts
 #
 # Le DAG dag_rag_ingestion (dags/dag_rag_ingestion.py) ingère dans une branche Neon (Postgres/
-# pgvector) "test", puis si OK dans la branche Neon "prod" utilisée par la stack applicative
+# pgvector) "validation", puis si OK dans la branche Neon "prod" utilisée par la stack applicative
 # principale — Neon est joignable directement par DATABASE_URL, pas besoin de résolution DNS par
 # nom de service ni de host.docker.internal (contrairement à l'ancien Weaviate "prod" du
 # docker-compose.yml racine, cf. service weaviate-test ci-dessous, en sommeil).
@@ -49,15 +49,15 @@ x-airflow-common:
     RAG_S3_BUCKET: "${RAG_S3_BUCKET:-s3-vitiscan-data}"
     RAG_S3_PREFIX: "${RAG_S3_PREFIX:-knowledge/current/}"
     RAG_LLM_DIR: "/opt/airflow/rag-llm"
-    # Branches Neon (Postgres/pgvector) test/prod, créées manuellement au préalable (branching
-    # natif Neon) - remplacent les 2 instances Weaviate test/prod.
-    DATABASE_URL_TEST: "${DATABASE_URL_TEST:?DATABASE_URL_TEST manquant, cf. .env.template}"
+    # Branches Neon (Postgres/pgvector) validation/prod, créées manuellement au préalable
+    # (branching natif Neon) - remplacent les 2 instances Weaviate test/prod.
+    DATABASE_URL_VALIDATION: "${DATABASE_URL_VALIDATION:?DATABASE_URL_VALIDATION manquant, cf. .env.template}"
     DATABASE_URL_PROD: "${DATABASE_URL_PROD:?DATABASE_URL_PROD manquant, cf. .env.template}"
-    # URL Render du service vitiscan-rag-llm-test (cf. render.yaml) : golden_prompts_gate y rejoue
-    # les golden prompts en HTTP réel (branche Neon test) avant de promouvoir vers la prod - teste
-    # aussi le service réellement déployé, pas seulement les données (cf.
+    # URL Render du service vitiscan-rag-llm-validation (cf. render.yaml) : golden_prompts_gate y
+    # rejoue les golden prompts en HTTP réel (branche Neon validation) avant de promouvoir vers la
+    # prod - teste aussi le service réellement déployé, pas seulement les données (cf.
     # dags/tasks/rag_ingestion.py::run_golden_prompts_gate).
-    RAG_LLM_TEST_URL: "${RAG_LLM_TEST_URL:?RAG_LLM_TEST_URL manquant, cf. .env.template}"
+    RAG_LLM_VALIDATION_URL: "${RAG_LLM_VALIDATION_URL:?RAG_LLM_VALIDATION_URL manquant, cf. .env.template}"
     DAG_RAG_INGESTION_CRON: "${DAG_RAG_INGESTION_CRON:-0 * * * *}"
     AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
     AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
@@ -117,9 +117,9 @@ services:
       start_period: 5s
     restart: "no"
 
-  # EN SOMMEIL depuis la migration pgvector — l'isolation "test" est désormais assurée par une
-  # vraie branche Neon (DATABASE_URL_TEST), plus besoin d'un Weaviate local dédié à cette stack.
-  # Conservé commenté pour retour arrière éventuel.
+  # EN SOMMEIL depuis la migration pgvector — l'isolation "validation" est désormais assurée par
+  # une vraie branche Neon (DATABASE_URL_VALIDATION), plus besoin d'un Weaviate local dédié à cette
+  # stack. Conservé commenté pour retour arrière éventuel.
   #
   # weaviate-test:
   #   image: semitechnologies/weaviate:1.27.4

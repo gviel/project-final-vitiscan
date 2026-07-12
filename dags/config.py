@@ -18,17 +18,20 @@ RAG_S3_BUCKET = _var("RAG_S3_BUCKET", "s3-vitiscan-data")
 RAG_S3_PREFIX = _var("RAG_S3_PREFIX", "knowledge/current/")
 RAG_LLM_DIR   = Path(_var("RAG_LLM_DIR", "/opt/airflow/rag-llm"))
 
-# Neon Postgres/pgvector : une branche "test" et une branche "prod" (branching natif Neon,
+# Neon Postgres/pgvector : une branche "validation" et une branche "prod" (branching natif Neon,
 # copy-on-write), créées manuellement au préalable - reproduit l'isolation qu'offraient les 2
 # instances Weaviate test/prod, sans avoir besoin de host.docker.internal (Neon est joignable
 # directement par URL, contrairement à l'ancien Weaviate "prod" du docker-compose.yml racine).
-DATABASE_URL_TEST = _var("DATABASE_URL_TEST", "")
+# "validation" n'est pas un environnement de déploiement séparé : c'est une étape de validation
+# pré-prod au sein du même pipeline (ingestion -> golden prompts -> promotion vers prod).
+DATABASE_URL_VALIDATION = _var("DATABASE_URL_VALIDATION", "")
 DATABASE_URL_PROD = _var("DATABASE_URL_PROD", "")
 
-# URL Render du service vitiscan-rag-llm-test (cf. render.yaml) - même code que vitiscan-rag-llm
-# mais branché sur DATABASE_URL_TEST. Interrogé en HTTP par run_golden_prompts_gate pour rejouer
-# les golden prompts contre le vrai service déployé, pas seulement contre les données.
-RAG_LLM_TEST_URL = _var("RAG_LLM_TEST_URL", "")
+# URL Render du service vitiscan-rag-llm-validation (cf. render.yaml) - même code que
+# vitiscan-rag-llm mais branché sur DATABASE_URL_VALIDATION. Interrogé en HTTP par
+# run_golden_prompts_gate pour rejouer les golden prompts contre le vrai service déployé, pas
+# seulement contre les données.
+RAG_LLM_VALIDATION_URL = _var("RAG_LLM_VALIDATION_URL", "")
 
 AWS_ACCESS_KEY_ID     = _var("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET_ACCESS_KEY = _var("AWS_SECRET_ACCESS_KEY", "")

@@ -9,12 +9,12 @@ ultérieures. MLflow reste hors scope (déjà déployé sur Hugging Face Spaces,
 |---|---|---|
 | `api/` (prédiction CNN) | Render, service Docker | `render.yaml` (Blueprint) |
 | `rag-llm/` (RAG-LLM, prod) | Render, service Docker | `render.yaml` (Blueprint) |
-| `rag-llm/` (RAG-LLM, **test**) | Render, service Docker (`vitiscan-rag-llm-test`) | `render.yaml` (Blueprint) — cible HTTP du DAG `dag_rag_ingestion`, jamais utilisé par `ui/` |
+| `rag-llm/` (RAG-LLM, **validation**) | Render, service Docker (`vitiscan-rag-llm-validation`) | `render.yaml` (Blueprint) — cible HTTP du DAG `dag_rag_ingestion`, jamais utilisé par `ui/` |
 | `ui/` (Streamlit) | Streamlit Community Cloud | connexion directe au dépôt GitHub |
-| Base de connaissances RAG | Neon (Postgres + `pgvector`) | externe, `DATABASE_URL` sur `vitiscan-rag-llm`/`vitiscan-rag-llm-test`, cf. ci-dessous |
+| Base de connaissances RAG | Neon (Postgres + `pgvector`) | externe, `DATABASE_URL` sur `vitiscan-rag-llm`/`vitiscan-rag-llm-validation`, cf. ci-dessous |
 | MLflow | Hugging Face Spaces (existant) | rien à faire |
 
-Un `render.yaml` à la racine du dépôt déclare `api`, `rag-llm` (prod) et `rag-llm` (test) comme
+Un `render.yaml` à la racine du dépôt déclare `api`, `rag-llm` (prod) et `rag-llm` (validation) comme
 Blueprint Render (Infrastructure as Code) — un seul clic pour créer les trois services avec la
 bonne config (`dockerfilePath`, `healthCheckPath`, variables d'environnement). `ui/` n'a pas sa
 place dans ce fichier : Streamlit Community Cloud ne consomme pas `render.yaml`, il déploie
@@ -22,20 +22,21 @@ directement depuis `ui/app.py` par sa propre interface.
 
 Les services sont rangés via le champ `projects` (au lieu de `services` au premier niveau) dans
 le Project Render **`jedha-AIA-Vitiscan`**, avec un environment par rôle : `vitiscan-api` et
-`vitiscan-rag-llm` dans l'environment **Production**, `vitiscan-rag-llm-test` dans l'environment
-**Test**. Le Workspace (`My Workspace`) n'est en revanche pas représentable en Blueprint — c'est
+`vitiscan-rag-llm` dans l'environment **Production**, `vitiscan-rag-llm-validation` dans
+l'environment **Validation** (étape de validation pré-prod, pas un environnement de déploiement
+séparé). Le Workspace (`My Workspace`) n'est en revanche pas représentable en Blueprint — c'est
 un conteneur de niveau compte, implicite au workspace dans lequel on connecte ce dépôt depuis le
 Dashboard, pas un champ `render.yaml`.
 
-## URLs déployées (test/prod)
+## URLs déployées (validation/prod)
 
 | Service | URL | Latence à froid (veille) | Latence à chaud |
 |---|---|---|---|
 | `vitiscan-api` (Render) | https://vitiscan-api.onrender.com | ~150s (recharge du modèle CNN depuis MLflow, torch+mlflow) | ~0.6s |
 | `vitiscan-rag-llm` (Render) | https://vitiscan-rag-llm.onrender.com | non mesuré à froid (déjà chaud lors du 1er test) | ~0.6s |
-| `vitiscan-rag-llm-test` (Render) | https://vitiscan-rag-llm-test.onrender.com | idem `vitiscan-rag-llm` (même image) | idem — interrogé uniquement par `dag_rag_ingestion` (`RAG_LLM_TEST_URL`), pas par `ui/` |
+| `vitiscan-rag-llm-validation` (Render) | https://vitiscan-rag-llm-validation.onrender.com | idem `vitiscan-rag-llm` (même image) | idem — interrogé uniquement par `dag_rag_ingestion` (`RAG_LLM_VALIDATION_URL`), pas par `ui/` |
 | Neon (Postgres/pgvector, branche prod) | interne (`DATABASE_URL`, non exposée publiquement) | — | — |
-| Neon (Postgres/pgvector, branche test) | interne (`DATABASE_URL` de `vitiscan-rag-llm-test`, non exposée publiquement) | — | — |
+| Neon (Postgres/pgvector, branche validation) | interne (`DATABASE_URL` de `vitiscan-rag-llm-validation`, non exposée publiquement) | — | — |
 | `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ | — | — |
 
 **Mise en veille Render (plan free)** : après **15 minutes** sans requête entrante (confirmé
@@ -78,7 +79,7 @@ rien d'ingéré (cf. `docs/harmonisation-noms-maladies.md` pour ce comportement)
 
 1. Render Dashboard -> **New** -> **Blueprint** -> sélectionner ce dépôt GitHub.
 2. Render détecte `render.yaml` à la racine et propose de créer `vitiscan-api`,
-   `vitiscan-rag-llm` et `vitiscan-rag-llm-test`.
+   `vitiscan-rag-llm` et `vitiscan-rag-llm-validation`.
 3. Renseigner les variables marquées `sync: false` quand demandé (une seule fois, à la création) :
    `MLFLOW_MODEL_ID`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (mêmes valeurs que
    `api/.env`, cf. `api/.env.template`).
@@ -100,8 +101,9 @@ curl -X POST https://<votre-service>.onrender.com/diagno -F "file=@photo.jpg"
 
 Créé automatiquement par le même Blueprint, en 2 exemplaires :
 - `vitiscan-rag-llm` (prod) : `DATABASE_URL` = branche Neon **prod**, utilisé par `ui/`.
-- `vitiscan-rag-llm-test` : même image/Dockerfile, `DATABASE_URL` = branche Neon **test**. Sert
-  uniquement de cible HTTP au DAG Airflow `dag_rag_ingestion` (`RAG_LLM_TEST_URL`, cf.
+- `vitiscan-rag-llm-validation` : même image/Dockerfile, `DATABASE_URL` = branche Neon
+  **validation** (étape de validation pré-prod, pas un environnement de déploiement séparé). Sert
+  uniquement de cible HTTP au DAG Airflow `dag_rag_ingestion` (`RAG_LLM_VALIDATION_URL`, cf.
   `airflow/.env.template`) pour rejouer les golden prompts contre le service réellement déployé
   avant de promouvoir les documents vers la branche Neon prod - jamais exposé à `ui/` ni aux
   utilisateurs finaux.

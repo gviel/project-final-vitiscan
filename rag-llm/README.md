@@ -32,7 +32,7 @@ pour l'instant (cf. specs.md).
 
 ```bash
 cp .env.template .env.dev   # puis compléter (HF_API_TOKEN au minimum). Même convention que
-                            # Project_03_Fraud_Detection : .env.dev/.env.test/.env.prod,
+                            # Project_03_Fraud_Detection : .env.dev/.env.validation/.env.prod,
                             # sélectionné par APP_ENV (défaut "dev"), cf. app/vector_store.py.
 pip install -r requirements.txt
 
