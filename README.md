@@ -7,7 +7,7 @@ Projet de certification Jedha RNCP7 Bloc 4 (Architecte IA).
 
 Dépot GitHub : https://github.com/gviel/project-final-vitiscan
 
-Présentation : docs/
+Présentation : docs/AIA_bloc4_Vitiscan_GV.pdf
 
 [![Démo Vitiscan](https://img.youtube.com/vi/wXaIMyCiRLs/hqdefault.jpg)](https://youtube.com/shorts/wXaIMyCiRLs)
 
