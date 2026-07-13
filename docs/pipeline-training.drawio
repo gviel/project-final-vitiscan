@@ -1,0 +1,182 @@
+<mxfile host="app.diagrams.net" version="24.7.0" type="device">
+  <diagram name="Pipeline Training - dag_train_model" id="vitiscan-dag-train-model">
+    <mxGraphModel dx="1300" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ==================== TITRE / TRIGGER ==================== -->
+
+        <mxCell id="n_title" value="DAG Airflow : dag_train_model&#10;Sweep multi-modèles CNN (training/config.yml -&gt; un train.py par modèle)" style="text;html=1;align=left;verticalAlign=top;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_trigger" value="Déclenchement manuel uniquement (schedule=None)&#10;param optionnel limit_batches (sweep smoke-test rapide)" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="340" y="80" width="360" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== PARSING DU DAG ==================== -->
+
+        <mxCell id="n_config" value="training/config.yml&#10;(monté en lecture seule)&#10;&#10;default_training (hyperparamètres communs)&#10;+ models_to_run : resnet18, resnet34&#10;(EfficientNet/MobileNet présents mais commentés)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="170" width="280" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_load" value="load_models_to_run()&#10;(appelé au parsing du DAG)&#10;&#10;Fusionne chaque entrée de models_to_run&#10;avec default_training -&gt; alimente un&#10;dynamic task mapping" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="400" y="170" width="300" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== DYNAMIC TASK MAPPING ==================== -->
+
+        <mxCell id="grp_mapping" value="Task Airflow : train_model (dynamic task mapping)&#10;une instance par modèle, exécution SÉQUENTIELLE (max_active_tis_per_dagrun=1 - CPU-only, pas de GPU dédié)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;verticalAlign=top;fontStyle=1;fontSize=12;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="660" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_task_r18" value="train_model[resnet18]&#10;&#10;subprocess :&#10;python train.py --model resnet18&#10;--epochs 25 --patience 5 ...&#10;--data-dir .../data-inrae&#10;--mlflow-uri ... --s3-bucket ..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="70" y="375" width="270" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_task_r34" value="train_model[resnet34]&#10;&#10;subprocess :&#10;python train.py --model resnet34&#10;--epochs 25 --patience 5 ...&#10;--data-dir .../data-inrae&#10;--mlflow-uri ... --s3-bucket ..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="380" y="375" width="270" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_seq" value="séquentiel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_task_r18" target="n_task_r34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== INTERIEUR DE train.py (détail d'une tâche) ==================== -->
+
+        <mxCell id="n_title2" value="Déroulé de train.py pour un modèle (identique pour chaque tâche train_model[...])" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="600" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_prepare" value="prepare_dataset()&#10;&#10;Télécharge/extrait le dataset dans&#10;work/training-data/data-inrae/&#10;(cache : pas re-téléchargé entre modèles)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="260" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_s3_dataset" value="AWS S3&#10;s3-vitiscan-data&#10;data-inrae/ (dataset zip + disease.json)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="740" width="260" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_train_loop" value="Boucle d'entraînement (mlflow.start_run +&#10;mlflow.pytorch.autolog)&#10;&#10;Par epoch (jusqu'à 25, early stopping&#10;patience=5) : train_loss/accuracy,&#10;validation_loss/accuracy loggés dans MLflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="610" width="290" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_eval" value="Évaluation sur le jeu de test&#10;&#10;Test_accuracy loggée dans MLflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="610" width="260" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_log_model" value="mlflow.pytorch.log_model(...)&#10;&#10;registered_model_name =&#10;{modèle}_{dataset}_ep{epochs}&#10;(ex: resnet18_inrae_ep25)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="700" width="260" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_mlflow" value="MLflow (Hugging Face Spaces)&#10;Experiment Vitiscan_CNN_Resnet_INRAE&#10;&#10;Tracking (runs, métriques par epoch)&#10;+ Registre de modèles (Logged Models)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="640" width="230" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== PROMOTION MANUELLE ==================== -->
+
+        <mxCell id="n_manual" value="Sélection manuelle du modèle (data scientist)&#10;&#10;Compare les runs dans l'UI MLflow (val_accuracy,&#10;test_accuracy), choisit le meilleur Logged Model,&#10;renseigne son id dans MLFLOW_MODEL_ID (Render,&#10;service vitiscan-api) - AUCUNE promotion automatique" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="880" width="500" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_api" value="Render&#10;vitiscan-api&#10;(prédiction CNN en prod)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="950" y="895" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FLECHES ==================== -->
+
+        <mxCell id="e_trig_load" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_trigger" target="n_load">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_config_load" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_config" target="n_load">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_load_r18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_load" target="n_task_r18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_load_r34" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_load" target="n_task_r34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_mapping_prepare" value="pour chaque tâche" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="grp_mapping" target="n_prepare">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_prepare_s3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_prepare" target="n_s3_dataset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_prepare_loop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="n_prepare" target="n_train_loop">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_loop_eval" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="n_train_loop" target="n_eval">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_eval_logmodel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;" edge="1" parent="1" source="n_eval" target="n_log_model">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_loop_mlflow" value="mlflow.log_metric&#10;par epoch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_train_loop" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1145" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_eval_mlflow" value="mlflow.log_metric&#10;(Test_accuracy)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_eval" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_logmodel_mlflow" value="log_model +&#10;registered_model_name" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_log_model" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_mlflow_manual" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;" edge="1" parent="1" source="n_mlflow" target="n_manual">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1145" y="940" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_manual_api" value="MLFLOW_MODEL_ID" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_manual" target="n_api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_api_mlflow" value="charge le modèle choisi&#10;au démarrage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_api" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1250" y="935" />
+              <mxPoint x="1250" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== LEGENDE ==================== -->
+
+        <mxCell id="n_legend" value="Légende" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1020" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_legend_task" value="Task / étape Airflow ou train.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1050" width="240" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_legend_ext" value="Système externe (S3, MLflow, Render)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="300" y="1050" width="260" height="35" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_legend_manual" value="Étape manuelle, hors DAG (pas d'automatisation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="1050" width="300" height="35" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
