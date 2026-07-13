@@ -20,16 +20,14 @@ Présentation : docs/AIA_bloc4_Vitiscan_GV.pdf
 | `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ |
 | `api` (Render, diagnostic CNN) | https://vitiscan-api.onrender.com/docs |
 | `rag-llm` (Render, plan de traitement) | https://vitiscan-rag-llm.onrender.com/docs |
-| `rag-llm` — validation (Render) | https://vitiscan-rag-llm-validation.onrender.com/docs (interne, cible du DAG `dag_rag_ingestion` uniquement - jamais exposé à `ui/` ni aux utilisateurs finaux) |
+| `rag-llm` - validation (Render) | https://vitiscan-rag-llm-validation.onrender.com/docs (interne, cible du DAG `dag_rag_ingestion` uniquement - jamais exposé à `ui/` ni aux utilisateurs finaux) |
+| `labeling` (Streamlit Community Cloud) | https://project-final-vitiscan-2xgfzqjj4y7xj2oytrkfur.streamlit.app/ |
 
 > Plan gratuit Render : 
 > 
 >les services `api`/`rag-llm` se mettent en veille après 15 min sans
 > requête et peuvent prendre jusqu'à ~90-150s à répondre au premier appel qui suit (cf.
 > `docs/deploiement-render-streamlit.md`).
->
-> `labeling/` n'est pas déployé publiquement à ce jour
-> (usage interne, en local via `docker-compose up labeling`).
 
 ## Structure du projet
 
