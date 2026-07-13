@@ -4,10 +4,9 @@ Tâches du DAG de sweep multi-modèles CNN (`training/config.yml` -> un `train.p
 Suit le précédent du projet Fraud Detection (`dag_train_model`) : lancement en subprocess, dans
 le conteneur Airflow lui-même (deps ML de `training/requirements.txt` installées directement dans
 l'image, cf. `airflow/Dockerfile` - pas de conteneur Docker séparé, jugé trop complexe pour ce
-projet). Différence assumée avec Fraud Detection : ici c'est Airflow qui orchestre la boucle
-multi-modèles (une tâche par modèle, via dynamic task mapping), alors que `train.py` reste
-volontairement un script "un seul modèle à la fois" (cf. `training/README.md`) - Fraud Detection,
-lui, boucle sur tous les modèles à l'intérieur d'un unique `train.py`/tâche Airflow.
+projet).
+Ici c'est Airflow qui orchestre la boucle multi-modèles (une tâche par modèle, via dynamic task mapping),
+alors que `train.py` reste volontairement un script "un seul modèle à la fois" (cf. `training/README.md`)
 """
 import subprocess
 import sys

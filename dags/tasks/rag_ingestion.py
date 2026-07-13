@@ -1,21 +1,14 @@
 """
 Tâches du DAG d'ingestion RAG (specs.md, Partie 1) :
-détecte les documents S3 nouveaux/modifiés/supprimés par rapport au manifest déjà enregistré dans
-la branche Neon de PROD (table rag_knowledge_manifest, cf. rag-llm/db/schema.sql), ingère dans la
-branche Neon de validation, puis si OK (golden prompts), ingère dans la branche Neon de prod et
-met à jour son manifest.
-
-Avant ce fichier comparait juste le LastModified S3 le plus récent à une Variable Airflow
-(timestamp de la dernière ingestion réussie) : ça ratait les modifications de contenu à date
-inchangée et les suppressions, et surtout ignorait totalement que DATABASE_URL_VALIDATION/PROD
-peuvent avoir changé de branche Neon entre deux runs (la Variable disait "déjà ingéré" alors que la
-branche réellement ciblée aujourd'hui pouvait être vide - constaté en test réel). Comparer
-directement au contenu de la base cible élimine cette classe de bug par construction.
-
-rag-llm/ est monté en lecture seule dans le conteneur Airflow (cf. airflow/docker-compose.yml) et
-ses dépendances sont installées dans l'image Airflow (cf. airflow/Dockerfile) : les tâches
-importent directement app.ingestion.run_ingestion() en process, pas de subprocess nécessaire (pas
-de conflit de dépendances à isoler ici, contrairement à l'entraînement du modèle CNN).
+- détecte les documents S3 nouveaux/modifiés/supprimés par rapport au manifest déjà enregistré dans
+la branche Neon de PROD (table rag_knowledge_manifest, cf. rag-llm/db/schema.sql), 
+- ingère dans la branche Neon de validation, puis si OK (test des "golden prompts"), ingère dans la branche Neon de prod et
+met à jour son manifest
+- rag-llm/ est monté en lecture seule dans le conteneur Airflow (cf. airflow/docker-compose.yml) et
+ses dépendances sont installées dans l'image Airflow (cf. airflow/Dockerfile)
+- les tâches importent directement app.ingestion.run_ingestion() en process
+    -> pas de subprocess nécessaire
+    -> pas de conflit de dépendances à isoler ici, contrairement à l'entraînement du modèle CNN
 """
 import os
 import shutil
@@ -182,25 +175,22 @@ def _wait_for_rag_llm_validation_ready(url: str, timeout: int = 180, interval: i
 
 def run_golden_prompts_gate(**context) -> None:
     """
-    Porte de qualité entre l'ingestion de validation et la promotion en prod (specs.md : "fait des
-    tests pour vérifier que le RAG-LLM répond correctement... si les tests sont OK injecter dans la
-    vector db de prod" — jusqu'ici seul le succès technique de l'ingestion faisait foi, cf.
-    docs/refactoring.md section 8).
+    Test QA entre l'ingestion de validation et la promotion des données RAG en prod (cf. specs.md)
 
-    Rejoue rag-llm/tests/golden_prompts.yaml en HTTP réel contre le service Render
+    - Rejoue rag-llm/tests/golden_prompts.yaml en HTTP réel contre le service Render
     vitiscan-rag-llm-validation (RAG_LLM_VALIDATION_URL, cf. render.yaml et dags/config.py), qui
     pointe sur la branche Neon de validation qui vient d'être peuplée par
-    download_and_ingest_validation. Contrairement à un appel en process de
-    generate_treatment_advice(), ceci teste aussi le service réellement déployé (Dockerfile,
-    variables d'env Render, limites du plan free...) - les deux bugs de déploiement déjà rencontrés
-    (rootDir cassant dockerfilePath/dockerContext, OOM torch CUDA involontaire, cf.
-    docs/refactoring.md) n'auraient pas été détectés par un test en process.
+    download_and_ingest_validation
+    - contrairement à un appel en process de generate_treatment_advice(), ceci teste aussi le service
+    réellement déployé (Dockerfile, variables d'env Render, etc.) 
+    - !!! 2 bugs de déploiement déjà rencontrés !!! :
+        - rootDir cassant dockerfilePath/dockerContext
+        - OOM torch CUDA involontaire
 
-    Toute panne réelle (cf. app.golden_prompts.GoldenPromptFailure) fait échouer cette tâche, ce
-    qui bloque ingest_prod (dépendance de tâche) — les documents ne sont ingérés en prod que si
-    tous les cas passent (ou sont explicitement skip, cf. GoldenPromptSkipped : uniquement quand
-    le LLM externe est indisponible, hors de portée de cette porte qui vérifie la résolution du
-    nommage/dosage, pas la disponibilité du LLM).
+    Tout problème ou anomalie (cf. app.golden_prompts.GoldenPromptFailure) fait échouer cette tâche,
+    ce qui bloque ingest_prod (dépendance de tâche) :
+    les documents ne sont ingérés en prod que si tous les cas passent (ou sont explicitement skip, cf. GoldenPromptSkipped : uniquement quand
+    le LLM externe est indisponible, hors de portée de ce test QA qui vérifie la résolution du nommage/dosage, pas la disponibilité du LLM).
     """
     if not RAG_LLM_VALIDATION_URL:
         raise RuntimeError("RAG_LLM_VALIDATION_URL manquant, cf. airflow/.env.template")
@@ -237,10 +227,11 @@ def run_golden_prompts_gate(**context) -> None:
 
 def ingest_prod(**context):
     """
-    Réingère les mêmes documents dans la branche Neon de prod (n'est atteint que si l'ingestion de
-    validation ET les golden prompts ont réussi), puis met à jour son manifest
-    (rag_knowledge_manifest) avec l'état S3 qui vient d'être promu - c'est ce manifest que
-    branch_check_new_docs relira au prochain run pour décider s'il y a du nouveau.
+    Réingère les mêmes documents dans la branche Neon de prod
+    - n'est atteint que si l'ingestion de validation
+    - ET les golden prompts ont réussi)
+    - puis met à jour son manifest (rag_knowledge_manifest) avec l'état S3 qui vient d'être promu
+    c'est ce manifest que branch_check_new_docs relira au prochain run pour décider s'il y a du nouveau.
     """
     tmp_dir = context["ti"].xcom_pull(task_ids="download_and_ingest_validation", key="knowledge_dir")
     _run_ingestion(tmp_dir, DATABASE_URL_PROD)

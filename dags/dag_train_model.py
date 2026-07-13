@@ -1,25 +1,23 @@
 """
-DAG Airflow — Sweep multi-modèles CNN Vitiscan (`training/config.yml` -> un `train.py` par
-modèle, specs.md Partie 2 AIA - amorce du futur DAG "détecter nouvelles images -> ré-entraînement").
+DAG Airflow
 
-Déclenchement manuel uniquement (`schedule=None`) : pas encore de détection automatique de
-nouvelles images labellisées (hors périmètre de cette passe, cf. docs/refactoring.md). La liste
-des modèles est lue depuis `training/config.yml` au moment du parsing du DAG (fichier statique
-monté en lecture seule, cf. `dags/config.py::TRAINING_CONFIG_PATH`) et alimente un dynamic task
-mapping : une tâche Airflow "train_model" par modèle, visible et rejouable indépendamment dans
-l'UI (contrairement au DAG équivalent du projet Fraud Detection, qui cache toute la boucle
-multi-modèles dans une seule tâche `train` - ici c'est Airflow qui orchestre la boucle, pas
-`train.py`, qui reste volontairement un script "un seul modèle à la fois", cf.
-`training/README.md`).
+Sweep multi-modèles CNN Vitiscan
+`training/config.yml` -> un `train.py` par modèle
+(specs.md Partie 2 AIA - futur DAG "détecter nouvelles images -> ré-entraînement").
 
-Exécution volontairement séquentielle (`max_active_tis_per_dagrun=1`) : chaque entraînement est
-CPU-only et prend déjà ~15-20 min (cf. `specs.md`, NB Important), pas de GPU dédié dans le
-conteneur Airflow - lancer plusieurs entraînements PyTorch en parallèle sur une seule machine
-risquerait une forte contention CPU/RAM.
+Déclenchement manuel uniquement (`schedule=None`) :
+pas encore de détection automatique de nouvelles images labellisées
+La liste des modèles est lue depuis `training/config.yml` au moment du parsing du DAG
+(fichier statique monté en lecture seule, cf. `dags/config.py::TRAINING_CONFIG_PATH`) 
+alimente un dynamic task mapping : une tâche Airflow "train_model" par modèle
 
-Param `limit_batches` (optionnel) : permet de déclencher un sweep "smoke test" rapide (quelques
-batches par modèle) sans attendre un entraînement complet par modèle, dans le même esprit que
-`--limit-batches` de `train.py`.
+Exécution volontairement séquentielle (`max_active_tis_per_dagrun=1`) :
+chaque entraînement est CPU-only et prend déjà ~15-20 min (cf. `specs.md`, NB Important),
+pas de GPU dédié dans le conteneur Airflow 
+-> lancer plusieurs entraînements PyTorch en parallèle sur une seule machine risquerait une forte contention CPU/RAM
+
+Param `limit_batches` (optionnel) : permet de déclencher un sweep "smoke test" rapide (quelques batches par modèle)
+sans attendre un entraînement complet par modèle (comme `--limit-batches` de `train.py`).
 """
 from datetime import datetime, timedelta
 

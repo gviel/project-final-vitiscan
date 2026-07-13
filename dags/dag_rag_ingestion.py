@@ -1,12 +1,12 @@
 """
 DAG Airflow — Ingestion des documents de connaissance RAG (specs.md, Partie 1).
 
-Détecte les documents markdown nouveaux/modifiés/supprimés dans S3 (comparaison par hash à ce qui
+- détecte les documents markdown nouveaux/modifiés/supprimés dans S3 (comparaison par hash à ce qui
 est déjà enregistré dans la branche Neon de prod, cf. tasks/rag_ingestion.py::branch_check_new_docs),
-les ingère dans la branche Neon (Postgres/pgvector) de validation, rejoue les golden prompts (porte
-de qualité, en HTTP réel contre le service Render vitiscan-rag-llm-validation) contre cette branche
-de validation, et seulement si tout est OK, ingère les documents dans la branche Neon de prod
-utilisée par rag-llm/.
+- les ingère dans la branche Neon (Postgres/pgvector) de validation,
+- rejoue les golden prompts (porte QA, en HTTP réel contre le service Render vitiscan-rag-llm-validation)
+contre cette branche de validation,
+- et seulement si tout est OK, ingère les documents dans la branche Neon de prod utilisée par rag-llm/
 
 Chaîne :
   branch_check_new_docs (BranchPythonOperator) :
