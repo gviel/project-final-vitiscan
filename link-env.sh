@@ -23,6 +23,8 @@ PATHS=(
     "ui/.env"
     "labeling/.env"
     "rag-llm/.env.dev"
+    "rag-llm/.env.validation"
+    "rag-llm/.env.prod"
     "airflow/.env"
     "training/.env"
 )
