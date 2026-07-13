@@ -1,13 +1,35 @@
-# Vitiscan
+# JEDHA - AIA Bloc 4 : Projet Final Vitiscan
+
+Détection de maladies de la vigne par photo de feuille (CNN) + préconisation d'un plan de traitement
+via un RAG-LLM.
+
+Projet de certification Jedha RNCP7 Bloc 4 (Architecte IA).
+
+Dépot GitHub : https://github.com/gviel/project-final-vitiscan
+
+Présentation : docs/
 
 [![Démo Vitiscan](https://img.youtube.com/vi/wXaIMyCiRLs/hqdefault.jpg)](https://youtube.com/shorts/wXaIMyCiRLs)
 
 *(clic sur la miniature pour voir la vidéo de démo)*
 
-Détection de maladies de la vigne par photo de feuille (CNN) + préconisation d'un plan de traitement
-via un RAG-LLM.
+## Accès en production
 
-Voir [`specs.md`](specs.md) pour le contexte complet et la roadmap.
+| Composant | URL |
+|---|---|
+| `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ |
+| `api` (Render, diagnostic CNN) | https://vitiscan-api.onrender.com/docs |
+| `rag-llm` (Render, plan de traitement) | https://vitiscan-rag-llm.onrender.com/docs |
+| `rag-llm` — validation (Render) | https://vitiscan-rag-llm-validation.onrender.com/docs (interne, cible du DAG `dag_rag_ingestion` uniquement - jamais exposé à `ui/` ni aux utilisateurs finaux) |
+
+> Plan gratuit Render : 
+> 
+>les services `api`/`rag-llm` se mettent en veille après 15 min sans
+> requête et peuvent prendre jusqu'à ~90-150s à répondre au premier appel qui suit (cf.
+> `docs/deploiement-render-streamlit.md`).
+>
+> `labeling/` n'est pas déployé publiquement à ce jour
+> (usage interne, en local via `docker-compose up labeling`).
 
 ## Structure du projet
 
@@ -22,7 +44,7 @@ rag-llm/    API RAG-LLM (préconisation de traitement) + base de connaissances (
             (dev/validation/prod, cf. rag-llm/.env.template)
 training/   Scripts d'entraînement du modèle CNN (train.py paramétrable), loggés dans MLflow
 airflow/    Stack Airflow (Dockerfile, docker-compose.yml) pour l'orchestration
-dags/       DAGs Airflow (ingestion RAG + porte de qualité golden prompts, sweep multi-modèles CNN)
+dags/       DAGs Airflow (ingestion RAG + porte de qualité golden prompts, test de plusieurs modèles CNN)
 docs/       Documentation (audit nommage, suivi de refactoring, déploiement)
 test_ui/    Scripts + photos annotées pour tester manuellement l'API de prédiction (EXIF GPS/date)
 render.yaml Blueprint Render (déploiement api/ + rag-llm/, cf. docs/deploiement-render-streamlit.md)
@@ -43,8 +65,7 @@ MLflow est déployé séparément sur Hugging Face Spaces et n'est pas géré pa
 Les 9 fiches de `rag-llm/data/knowledge/` utilisent un identifiant canonique unique (nom de fichier
 = `id` = `cnn_label`) : le nom latin du taxon INRAE pour les 7 maladies du modèle en prod (ex.
 `guignardia_bidwellii`), ou le nom de classe Kaggle tel quel pour les 2 maladies sans équivalent
-INRAE (`brown_spot`, `shot_hole`). Détail de la décision et de l'audit qui l'a précédée :
-[`docs/harmonisation-noms-maladies.md`](docs/harmonisation-noms-maladies.md).
+INRAE (`brown_spot`, `shot_hole`).
 
 ## Démarrage rapide (local)
 
