@@ -43,6 +43,6 @@ Voir le `docker-compose.yml` racine (service `labeling`) pour lancer l'ensemble 
   problème pratique pour un usage à une seule personne/petite équipe séquentielle.
 - **Bug EXIF GPS hérité de `ui/app.py::get_exif_data`** : `GPSLatitudeRef`/`GPSLongitudeRef` sont
   ignorés (toujours traité comme Nord/Est), non corrigé dans ce composant.
-- **Déploiement** : ce composant n'est pour l'instant testé qu'en local (docker-compose), pas
-  encore ajouté à `render.yaml` ni à Streamlit Community Cloud — le `Dockerfile` autonome le rend
-  ajoutable plus tard sans changement de code.
+- **Déploiement** : disponible sur Streamlit Community Cloud (cf.
+  `docs/deploiement-render-streamlit.md`), **sans restriction d'accès** - URL à ne pas partager
+  publiquement, en attendant une éventuelle authentification.

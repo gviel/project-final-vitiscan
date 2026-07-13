@@ -1,4 +1,4 @@
-# Déploiement — Render (`api`, `rag-llm`) + Streamlit Community Cloud (`ui`)
+# Déploiement — Render (`api`, `rag-llm`) + Streamlit Community Cloud (`ui`, `labeling`)
 
 Étape 9 du TODO Partie 1 (`specs.md`). Couvre le premier déploiement et les mises à jour
 ultérieures. MLflow reste hors scope (déjà déployé sur Hugging Face Spaces, cf. `specs.md`).
@@ -11,6 +11,7 @@ ultérieures. MLflow reste hors scope (déjà déployé sur Hugging Face Spaces,
 | `rag-llm/` (RAG-LLM, prod) | Render, service Docker | `render.yaml` (Blueprint) |
 | `rag-llm/` (RAG-LLM, **validation**) | Render, service Docker (`vitiscan-rag-llm-validation`) | `render.yaml` (Blueprint) — cible HTTP du DAG `dag_rag_ingestion`, jamais utilisé par `ui/` |
 | `ui/` (Streamlit) | Streamlit Community Cloud | connexion directe au dépôt GitHub |
+| `labeling/` (Streamlit, dashboard admin) | Streamlit Community Cloud | connexion directe au dépôt GitHub - **sans authentification**, URL non partagée publiquement |
 | Base de connaissances RAG | Neon (Postgres + `pgvector`) | externe, `DATABASE_URL` sur `vitiscan-rag-llm`/`vitiscan-rag-llm-validation`, cf. ci-dessous |
 | MLflow | Hugging Face Spaces (existant) | rien à faire |
 
@@ -38,6 +39,7 @@ Dashboard, pas un champ `render.yaml`.
 | Neon (Postgres/pgvector, branche prod) | interne (`DATABASE_URL`, non exposée publiquement) | — | — |
 | Neon (Postgres/pgvector, branche validation) | interne (`DATABASE_URL` de `vitiscan-rag-llm-validation`, non exposée publiquement) | — | — |
 | `ui` (Streamlit Community Cloud) | https://project-final-vitiscan-rtugeymh3hyxpqvxwvbayh.streamlit.app/ | — | — |
+| `labeling` (Streamlit Community Cloud) | https://project-final-vitiscan-2xgfzqjj4y7xj2oytrkfur.streamlit.app/ | — | — |
 
 **Mise en veille Render (plan free)** : après **15 minutes** sans requête entrante (confirmé
 [render.com/docs/free](https://render.com/docs/free)), le service se met en veille. La requête
@@ -153,13 +155,41 @@ curl -X POST https://<votre-service>.onrender.com/solutions \
 Ouvrir l'URL `https://<app>.streamlit.app`, uploader une photo de feuille de vigne, vérifier que
 le diagnostic et le plan de traitement s'affichent (bout en bout à travers les 2 services Render).
 
+## 4. `labeling/` sur Streamlit Community Cloud
+
+1. [share.streamlit.io](https://share.streamlit.io) -> **New app** -> sélectionner ce dépôt
+   GitHub, branche, et **Main file path** = `labeling/app.py`.
+2. Streamlit Cloud détecte automatiquement `labeling/requirements.txt`.
+3. **Secrets** (menu de l'app -> *Settings* -> *Secrets*), format TOML, clés au premier niveau :
+   ```toml
+   API_DIAGNO = "https://<votre-service-api>.onrender.com"
+
+   AWS_ACCESS_KEY_ID = "..."
+   AWS_SECRET_ACCESS_KEY = "..."
+   AWS_DEFAULT_REGION = "eu-west-3"
+   PHOTOS_S3_BUCKET = "s3-vitiscan-data"
+   PHOTOS_S3_PREFIX = "user-photos/"
+   DATABASE_URL = "..."
+
+   LABELING_PAGE_SIZE = "20"
+   ```
+4. **Pas d'authentification dans le code** (cf. `labeling/README.md` "Limites connues") : outil
+   admin déployé volontairement sans restriction d'accès Streamlit Cloud à ce jour - l'URL ne doit
+   pas être partagée publiquement.
+
+### Vérification post-déploiement
+
+Ouvrir l'URL de l'app, vérifier que les photos soumises via `ui/` apparaissent (statut
+`incoming`), que le bouton "Accepter"/"Rejeter" déplace bien l'objet S3, et que le bandeau de
+drift se met à jour après labellisation.
+
 ## Mise à jour (redeploy)
 
 - `api`/`rag-llm` (Render) : tout push sur la branche connectée redéploie automatiquement (comportement
   par défaut Render pour un service Git-connecté). Un changement de variable d'environnement
   redéploie aussi automatiquement.
-- `ui` (Streamlit Cloud) : idem, redeploy automatique sur push. Changement de secrets -> redémarrage
-  de l'app (pas de rebuild, juste un restart).
+- `ui`/`labeling` (Streamlit Cloud) : idem, redeploy automatique sur push. Changement de secrets ->
+  redémarrage de l'app (pas de rebuild, juste un restart).
 
 ## Limites connues du plan gratuit Render
 
