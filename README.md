@@ -1,5 +1,9 @@
 # Vitiscan
 
+[![Démo Vitiscan](https://img.youtube.com/vi/wXaIMyCiRLs/hqdefault.jpg)](https://youtube.com/shorts/wXaIMyCiRLs)
+
+*(clic sur la miniature pour voir la vidéo de démo)*
+
 Détection de maladies de la vigne par photo de feuille (CNN) + préconisation d'un plan de traitement
 via un RAG-LLM.
 
@@ -9,9 +13,13 @@ Voir [`specs.md`](specs.md) pour le contexte complet et la roadmap.
 
 ```
 api/        API FastAPI de prédiction CNN (charge le modèle depuis MLflow)
-ui/         Interface Streamlit (upload photo -> diagnostic -> plan de traitement)
+ui/         Interface Streamlit (upload photo -> diagnostic -> plan de traitement), un seul
+            environnement prod (S3 + Neon réels)
+labeling/   Dashboard Streamlit de labellisation humaine des photos soumises via ui/ (tri
+            incoming/accepted/rejected, déplacement S3, calcul de drift modèle)
 rag-llm/    API RAG-LLM (préconisation de traitement) + base de connaissances (data/knowledge/)
-            + scripts d'ingestion + tests golden prompts (tests/)
+            + scripts d'ingestion + tests golden prompts (tests/) - 3 environnements
+            (dev/validation/prod, cf. rag-llm/.env.template)
 training/   Scripts d'entraînement du modèle CNN (train.py paramétrable), loggés dans MLflow
 airflow/    Stack Airflow (Dockerfile, docker-compose.yml) pour l'orchestration
 dags/       DAGs Airflow (ingestion RAG + porte de qualité golden prompts, sweep multi-modèles CNN)
@@ -20,10 +28,13 @@ test_ui/    Scripts + photos annotées pour tester manuellement l'API de prédic
 render.yaml Blueprint Render (déploiement api/ + rag-llm/, cf. docs/deploiement-render-streamlit.md)
 work/       Fichiers de travail montés en volume dans Airflow (cache dataset, cache knowledge) -
             gitignoré, créé automatiquement au premier démarrage de la stack Airflow
+link-env.sh Centralise les .env réels (non commités) dans ~/.vitiscan/ et les symlinke ici -
+            à relancer dans tout nouveau worktree Git pour retrouver les mêmes configs
 ```
 
 Chaque composant a son propre `requirements.txt` et `.env.template` (copier en `.env` et compléter en local,
-jamais commité).
+jamais commité). Les fichiers réels sont centralisés dans `~/.vitiscan/` et symlinkés via
+`./link-env.sh` (idempotent, à relancer dans chaque nouveau worktree).
 
 MLflow est déployé séparément sur Hugging Face Spaces et n'est pas géré par ce dépôt.
 
@@ -45,8 +56,11 @@ docker-compose up --build
 > avec un tiret) — pas le plugin `docker compose` v2. Si votre machine a le plugin v2, `docker
 > compose up --build` fonctionne aussi.
 
-Services exposés : `api` (4000), `ui` (8502), `rag-llm` (9000), `postgres` (5433, Postgres/pgvector).
-Voir `docker-compose.yml` pour le détail.
+Services exposés : `api` (4000), `rag-llm` (9000), `ui` (8502), `labeling` (8503). `ui`/`labeling`
+n'ont qu'un seul environnement (prod, S3 + Neon réels) ; `rag-llm` lit son `DATABASE_URL` (branche
+Neon dev/validation/prod) directement depuis son propre `.env.*` - le service `postgres` local est
+désactivé par défaut (conflit de nom de conteneur avec d'autres stacks). Voir `docker-compose.yml`
+pour le détail.
 
 ## Tests
 
@@ -61,3 +75,5 @@ pytest tests/                    # golden prompts : vérifie retrieval + dosage 
 - [`docs/harmonisation-noms-maladies.md`](docs/harmonisation-noms-maladies.md) — audit et résolution du nommage des maladies
 - [`docs/refactoring.md`](docs/refactoring.md) — suivi détaillé du refactoring CDSD -> ce dépôt
 - [`docs/deploiement-render-streamlit.md`](docs/deploiement-render-streamlit.md) — déploiement en production (Render / Streamlit Community Cloud)
+- [`labeling/README.md`](labeling/README.md) — dashboard de labellisation des photos (tri incoming/accepted/rejected, drift)
+- [`ui/README.md`](ui/README.md) — interface Streamlit de diagnostic
