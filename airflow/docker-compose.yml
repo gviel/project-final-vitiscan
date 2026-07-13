@@ -115,7 +115,7 @@ services:
       interval: 10s
       retries: 5
       start_period: 5s
-    restart: always
+    restart: "no"
 
   # EN SOMMEIL depuis la migration pgvector — l'isolation "test" est désormais assurée par une
   # vraie branche Neon (DATABASE_URL_TEST), plus besoin d'un Weaviate local dédié à cette stack.
@@ -154,7 +154,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: "no"
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -170,7 +170,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: "no"
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -186,7 +186,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: "no"
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
@@ -202,7 +202,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    restart: always
+    restart: "no"
     depends_on:
       <<: *airflow-common-depends-on
       airflow-init:
