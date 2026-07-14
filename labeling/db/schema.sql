@@ -64,3 +64,11 @@ EXCEPTION
 END $$;
 
 CREATE INDEX IF NOT EXISTS vitiscan_photos_status_idx ON vitiscan_photos (status);
+
+-- Suivi de l'intégration au dataset d'entraînement CNN (cf. dags/dag_retrain_from_labeled_photos.py)
+-- NULL = pas encore copiée dans organized_data_inrae/train/<human_label>/. Une simple colonne
+-- suffit ici (pas besoin d'une table manifest séparée façon rag_knowledge_manifest) : chaque photo
+-- a déjà une identité stable (id) et un état persistant dans cette même table.
+ALTER TABLE vitiscan_photos ADD COLUMN IF NOT EXISTS training_included_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS vitiscan_photos_training_pending_idx ON vitiscan_photos (id)
+    WHERE status = 'accepted' AND training_included_at IS NULL;

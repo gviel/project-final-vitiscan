@@ -39,6 +39,14 @@ AWS_DEFAULT_REGION    = _var("AWS_DEFAULT_REGION", "eu-west-3")
 
 DAG_RAG_INGESTION_CRON = _var("DAG_RAG_INGESTION_CRON", "0 * * * *")
 
+# ── Photos labellisées (labeling/) -> ré-entraînement (dag_retrain_from_labeled_photos) ──────────
+# Même bucket S3 que RAG_S3_BUCKET/TRAINING_S3_BUCKET (s3-vitiscan-data), préfixe différent.
+# Même branche Neon "prod" que DATABASE_URL_PROD ci-dessus (table vitiscan_photos, distincte de
+# vitiscan_knowledge du RAG) - pas besoin d'une variable de connexion séparée.
+PHOTOS_S3_PREFIX = _var("PHOTOS_S3_PREFIX", "user-photos/")
+LABELING_DIR = Path(_var("LABELING_DIR", "/opt/airflow/labeling"))
+DAG_RETRAIN_CRON = _var("DAG_RETRAIN_CRON", "0 3 * * *")
+
 # ── Répertoire de travail générique ───────────────────────────────────────────────
 # Bind-mount de work/ (racine du dépôt, gitignoré) plutôt qu'un volume Docker nommé : fichiers de
 # travail (cache dataset, cache téléchargement knowledge...) visibles/inspectables depuis l'hôte,

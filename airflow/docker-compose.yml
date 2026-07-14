@@ -72,6 +72,13 @@ x-airflow-common:
     MLFLOW_URI: "${MLFLOW_URI:-https://gviel-mlflow37.hf.space/}"
     EXPERIMENT_NAME: "${EXPERIMENT_NAME:-Vitiscan_CNN_Resnet_INRAE}"
     TRAINING_S3_BUCKET: "${TRAINING_S3_BUCKET:-s3-vitiscan-data}"
+    # Variables métier lues par dags/config.py pour dag_retrain_from_labeled_photos (photos
+    # labellisées via labeling/ -> dataset CNN -> déclenchement de dag_train_model). Même bucket S3
+    # que RAG_S3_BUCKET/TRAINING_S3_BUCKET, préfixe différent ; réutilise DATABASE_URL_PROD
+    # ci-dessus (même branche Neon, table vitiscan_photos distincte de vitiscan_knowledge).
+    PHOTOS_S3_PREFIX: "${PHOTOS_S3_PREFIX:-user-photos/}"
+    LABELING_DIR: "/opt/airflow/labeling"
+    DAG_RETRAIN_CRON: "${DAG_RETRAIN_CRON:-0 3 * * *}"
     # Répertoire de travail générique (cf. dags/tasks/rag_ingestion.py : cache fixe de téléchargement
     # des documents knowledge, réutilisé/écrasé à chaque run plutôt qu'un tempfile.mkdtemp() -
     # aucune purge manuelle nécessaire après coup).
@@ -80,6 +87,10 @@ x-airflow-common:
     - ../dags:/opt/airflow/dags
     - ../rag-llm:/opt/airflow/rag-llm:ro
     - ../training:/opt/airflow/training:ro
+    # Lecture seule, comme rag-llm/training ci-dessus : dag_retrain_from_labeled_photos exécute
+    # labeling/db/schema.sql de façon idempotente (même pattern que rag-llm/db/schema.sql pour
+    # rag_knowledge_manifest), psycopg/boto3 déjà installés via rag-llm/training requirements.txt.
+    - ../labeling:/opt/airflow/labeling:ro
     # Writable, séparé de ../training (montée en lecture seule) : répertoire de travail commun
     # (dataset d'entraînement en cache, téléchargement des documents knowledge) - bind-mount vers
     # work/ à la racine du dépôt plutôt qu'un volume Docker nommé, pour rester visible/inspectable

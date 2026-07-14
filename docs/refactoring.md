@@ -860,6 +860,58 @@ cas. Effet de bord : les identifiants `HF_API_TOKEN` n'ont plus besoin de vivre 
 Airflow (retirés de `airflow/docker-compose.yml`/`airflow/.env.template`), puisque l'appel LLM se
 fait désormais côté service Render `vitiscan-rag-llm-test`, qui a ses propres identifiants.
 
+### 12. `dag_retrain_from_labeled_photos` — Partie 2 AIA, testé réellement de bout en bout
+
+Dernière brique manquante de `specs.md` partie "Faire évoluer pour l'AIA" : *"détecter si
+nouvelles images labellisées -> les ajouter dans le dataset et déclencher un nouvel
+entraînement"*. Jusqu'ici, rien ne reliait les photos acceptées via `labeling/` (S3
+`user-photos/accepted/...` + table Neon `vitiscan_photos`) au dataset CNN (`training/`) ni à
+`dag_train_model` (déclenchable uniquement à la main).
+
+**Conception** (même style que `dag_rag_ingestion` : `BranchPythonOperator` + tâches +
+`EmptyOperator`) :
+```
+branch_check_new_labels -> add_to_dataset -> trigger_retrain (TriggerDagRunOperator)
+                        -> stop_dag
+```
+- `dags/tasks/photo_retraining.py` (nouveau) : `branch_check_new_labels` vérifie d'abord que le
+  dataset de base (`organized_data_inrae/{train,val,test}`) existe déjà (précondition - doit avoir
+  été construit par un premier run de `dag_train_model`, sinon route vers `stop_dag`), puis
+  cherche les photos `vitiscan_photos WHERE status='accepted' AND human_label IS NOT NULL AND
+  training_included_at IS NULL`. `add_to_dataset` télécharge chaque photo depuis S3 et l'écrit
+  dans `organized_data_inrae/train/<human_label>/photo_<id><ext>` (uniquement `train/` - `val`/
+  `test` restent fixes depuis le split initial, enrichissement incrémental simple), puis marque
+  chaque ligne (`training_included_at = now()`).
+- **Pas de nouvelle table manifest** (contrairement à `rag_knowledge_manifest` pour le RAG,
+  nécessaire là-bas car S3 seul n'a pas d'état persistant) : une simple colonne
+  `training_included_at` ajoutée à `vitiscan_photos` (`labeling/db/schema.sql`, ALTER IF NOT
+  EXISTS + index partiel `vitiscan_photos_training_pending_idx`) suffit, chaque photo ayant déjà
+  une identité stable dans cette table.
+- **Réutilise la config existante** plutôt que d'en dupliquer : `DATABASE_URL_PROD` (même branche
+  Neon "prod" que `rag-llm`, table différente), `TRAINING_DATA_DIR`. Seules 2 variables réellement
+  nouvelles dans `dags/config.py`/`airflow/.env.template` : `PHOTOS_S3_PREFIX` (`user-photos/`) et
+  `DAG_RETRAIN_CRON` (défaut quotidien `0 3 * * *`, plus espacé que l'horaire de
+  `dag_rag_ingestion` - un ré-entraînement complet coûte 15-40 min pour 2 modèles, l'intervalle
+  sert aussi de "batching" naturel des photos accumulées entre deux runs).
+- **Premier exemple de `TriggerDagRunOperator`** dans ce projet (aucun DAG n'en déclenchait un
+  autre jusqu'ici) : `TriggerDagRunOperator(task_id="trigger_retrain",
+  trigger_dag_id="dag_train_model")`, sans `conf` particulier (utilise les défauts de
+  `dag_train_model`, `limit_batches=None` = entraînement complet).
+- `airflow/docker-compose.yml` : nouveau mount `../labeling:/opt/airflow/labeling:ro` (comme
+  `rag-llm`/`training`) pour exécuter `labeling/db/schema.sql` de façon idempotente (même pattern
+  que `_ensure_manifest_table` pour le RAG) - `psycopg`/`boto3` déjà installés via
+  `rag-llm/requirements.txt`/`training/requirements.txt`, pas de changement au `Dockerfile`.
+
+**Testé réellement de bout en bout** : stack Airflow (re)buildée et démarrée, DAG parsé sans
+erreur (`airflow dags list-import-errors`), déclenché (le premier run planifié `0 3 * * *` a
+tourné avant même un déclenchement manuel) contre les vraies données Neon prod - 2 photos
+`accepted` (`guignardia_bidwellii`, `elsinoe_ampelina`) détectées, téléchargées et écrites dans
+`organized_data_inrae/train/<label>/photo_<id>.<ext>`, `training_included_at` mis à jour en base,
+et un run réel de `dag_train_model` créé par le `TriggerDagRunOperator` (`state=running` au
+moment de la vérification - pas besoin d'attendre la fin complète de l'entraînement pour valider
+le déclenchement). Idempotence confirmée : un second déclenchement manuel juste après a
+correctement routé vers `stop_dag` ("Aucune nouvelle photo labellisée à intégrer").
+
 ## Reste à faire (hors scope de cette passe)
 
 - ~~Étape 8 : tests "golden prompts" (yaml maladies/réponses attendues) pour `rag-llm/`~~ — fait
@@ -883,8 +935,10 @@ fait désormais côté service Render `vitiscan-rag-llm-test`, qui a ses propres
   supprimés, cf. audit metadata ci-dessus). Ne restent dans MLflow que : les 3 runs kaggle de
   `Vitiscan_CNN_Notebook_GPU`, et `polite-mole-465`/`calm-stag-792` dans
   `Vitiscan_CNN_Resnet_INRAE_FINE_TUNING`.
-- Partie 2 du TODO (`specs.md`) : UI de labellisation, DAGs de ré-entraînement et de détection de
-  drift.
+- ~~Partie 2 du TODO (`specs.md`) : UI de labellisation, DAGs de ré-entraînement et de détection de
+  drift.~~ — fait : `labeling/` (UI de labellisation + calcul de drift, cf. commits
+  `photo-labeling-dashboard`) et `dag_retrain_from_labeled_photos` (DAG de ré-entraînement, cf.
+  section 12 ci-dessus) testés réellement de bout en bout.
 - ~~Vérifier que `training/notebooks/CNN_model_FT.ipynb` s'exécute bien en l'état~~ — fait : smoke
   test dans un conteneur `python:3.11-slim` jetable, sur une copie temporaire du notebook (jamais
   commitée) avec les cellules de rééquilibrage/split sautées (dataset `organized_data_inrae` déjà
