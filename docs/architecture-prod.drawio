@@ -1,0 +1,266 @@
+<mxfile host="app.diagrams.net" version="24.7.0" type="device">
+  <diagram name="Architecture prod - Vitiscan" id="vitiscan-prod-arch">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ==================== SWIMLANES / GROUPES ==================== -->
+
+        <mxCell id="grp_user" value="Utilisateurs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="260" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_frontend" value="Frontend (Streamlit Community Cloud)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="260" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_render" value="Backend applicatif (Render, services Docker)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="40" width="360" height="420" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_data" value="Données &amp; IA managées (externe)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="40" width="420" height="500" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp_local" value="Orchestration &amp; outillage interne (local, non déployé sur un cloud)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;verticalAlign=top;fontStyle=1;fontSize=13;align=left;spacingLeft=10;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="360" y="280" width="600" height="260" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== UTILISATEURS ==================== -->
+
+        <mxCell id="n_viticulteur" value="Viticulteur&#10;(navigateur)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="190" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_operateur" value="Data scientist / opérateur&#10;(poste local)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="70" y="155" width="190" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FRONTEND ==================== -->
+
+        <mxCell id="n_ui" value="ui&#10;Interface Streamlit (upload photo,&#10;diagnostic, plan de traitement)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="390" y="100" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== RENDER (backend) ==================== -->
+
+        <mxCell id="n_api" value="api&#10;Prédiction CNN (diagnostic maladie)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="710" y="90" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_ragllm" value="rag-llm (prod)&#10;Plan de traitement (RAG)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="710" y="180" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_ragllm_val" value="rag-llm-validation&#10;Même service, branché sur la base de&#10;validation - cible du DAG d'ingestion&#10;uniquement, jamais exposé à ui/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=12;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="710" y="270" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_render_note" value="Plan gratuit : mise en veille après 15 min&#10;d'inactivité (réveil ~30-150s à la 1re requête)" style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="710" y="370" width="300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== DONNEES & IA EXTERNES ==================== -->
+
+        <mxCell id="n_mlflow" value="MLflow&#10;(Hugging Face Spaces)&#10;Registre du modèle CNN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="90" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_hf_llm" value="Hugging Face&#10;Inference Router&#10;LLM Llama-3.1-8B-Instruct" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="90" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_neon_prod" value="Neon Postgres/pgvector&#10;branche prod&#10;base de connaissances RAG&#10;+ table vitiscan_photos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="180" width="180" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_neon_val" value="Neon Postgres/pgvector&#10;branche validation&#10;base de connaissances RAG&#10;(pré-prod)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="180" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_s3" value="AWS S3 - s3-vitiscan-data&#10;data-inrae/ + data-kaggle/ (dataset training)&#10;knowledge/current/ + knowledge/new/ (docs RAG)&#10;user-photos/ (incoming/accepted/rejected)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="290" width="370" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_data_note" value="MLflow = existant, hors périmètre du dépôt.&#10;Neon + S3 = ressources partagées entre&#10;services Render et outillage local." style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#666666;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="400" width="370" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== LOCAL / ORCHESTRATION ==================== -->
+
+        <mxCell id="n_airflow" value="Airflow (local)&#10;dag_rag_ingestion : détecte les nouveaux docs S3,&#10;ingère en validation, rejoue les golden prompts&#10;contre rag-llm-validation, promeut vers prod si OK&#10;dag_train_model : entraîne le CNN, pousse vers MLflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="390" y="330" width="290" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_labeling" value="labeling (local, non déployé)&#10;Dashboard interne : revue/tri des photos,&#10;calcul du drift prédiction vs label humain" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;dashed=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="390" y="450" width="290" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FLECHES : UTILISATEURS ==================== -->
+
+        <mxCell id="e_vit_ui" value="upload photo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_viticulteur" target="n_ui">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_op_airflow" value="déclenche / supervise" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_operateur" target="n_airflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_op_labeling" value="labellise" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_operateur" target="n_labeling">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ==================== FLECHES : UI -> RENDER ==================== -->
+
+        <mxCell id="e_ui_api" value="POST /diagno" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_ui" target="n_api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ui_ragllm" value="POST /solutions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_ui" target="n_ragllm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ui_s3" value="sauvegarde photo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;exitX=0.5;exitY=1;entryX=0;entryY=0.3;" edge="1" parent="1" source="n_ui" target="n_s3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="250" />
+              <mxPoint x="1000" y="250" />
+              <mxPoint x="1000" y="315" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_ui_neonprod" value="sauvegarde métadonnées&#10;(vitiscan_photos)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_ui" target="n_neon_prod">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="115" />
+              <mxPoint x="620" y="60" />
+              <mxPoint x="1080" y="60" />
+              <mxPoint x="1080" y="220" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== FLECHES : RENDER -> DATA/IA ==================== -->
+
+        <mxCell id="e_api_mlflow" value="charge le modèle CNN" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_api" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ragllm_neonprod" value="recherche vectorielle&#10;(pgvector)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_ragllm" target="n_neon_prod">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ragllm_hf" value="génération LLM" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_ragllm" target="n_hf_llm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1220" y="210" />
+              <mxPoint x="1220" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_ragllmval_neonval" value="recherche vectorielle&#10;(pgvector)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_ragllm_val" target="n_neon_val">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_ragllmval_hf" value="génération LLM" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_ragllm_val" target="n_hf_llm">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1420" y="310" />
+              <mxPoint x="1420" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== FLECHES : AIRFLOW ==================== -->
+
+        <mxCell id="e_airflow_s3" value="lit knowledge/current/,&#10;écrit training-data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_airflow" target="n_s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_airflow_neonval" value="ingère les nouveaux docs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_airflow" target="n_neon_val">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="360" />
+              <mxPoint x="700" y="220" />
+              <mxPoint x="1415" y="220" />
+              <mxPoint x="1415" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_airflow_ragllmval" value="rejoue les golden prompts&#10;(porte de qualité)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_airflow" target="n_ragllm_val">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_airflow_neonprod" value="promeut les docs si OK" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_airflow" target="n_neon_prod">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="345" />
+              <mxPoint x="1220" y="345" />
+              <mxPoint x="1220" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_airflow_mlflow" value="pousse un nouveau&#10;modèle entraîné" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;" edge="1" parent="1" source="n_airflow" target="n_mlflow">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="355" />
+              <mxPoint x="1220" y="355" />
+              <mxPoint x="1220" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== FLECHES : LABELING ==================== -->
+
+        <mxCell id="e_labeling_s3" value="lit / déplace les photos&#10;(incoming -&gt; accepted/rejected)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_labeling" target="n_s3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="485" />
+              <mxPoint x="1080" y="485" />
+              <mxPoint x="1080" y="335" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_labeling_neonprod" value="lit / met à jour&#10;vitiscan_photos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_labeling" target="n_neon_prod">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="470" />
+              <mxPoint x="1150" y="470" />
+              <mxPoint x="1150" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e_labeling_api" value="GET /diseases" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;dashed=1;" edge="1" parent="1" source="n_labeling" target="n_api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="440" />
+              <mxPoint x="500" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ==================== LEGENDE ==================== -->
+
+        <mxCell id="n_legend" value="Légende" style="text;html=1;align=left;verticalAlign=top;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_legend_plain" value="trait plein = chemin de prod (viticulteur)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="630" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="n_legend_dashed" value="trait pointillé = pré-prod / interne / non déployé sur un cloud (rag-llm-validation, branche Neon validation, Airflow local, labeling)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="670" width="300" height="60" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
