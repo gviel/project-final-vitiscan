@@ -23,6 +23,10 @@ torch==2.5.0+cpu
 # est déjà satisfaite et ne réinstalle pas de build incompatible par-dessus.
 torchvision==0.20.0+cpu
 sentence-transformers>=2.2.0
+# transformers 5.x exige torch>=2.6 alors que torch est figé à 2.5.0+cpu ci-dessus (training/requirements.txt
+# l'installe aussi en 2.5.0) : sans cette borne, un rebuild tire transformers 5.x et l'import de
+# sentence_transformers plante (NameError: name 'nn' is not defined). À relever avec torch.
+transformers>=4.41,<5.0.0
 python-frontmatter
 requests
 typing-extensions>=4.2.0
