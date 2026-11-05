@@ -94,5 +94,6 @@ pytest tests/                    # golden prompts : vérifie retrieval + dosage 
 - [`docs/harmonisation-noms-maladies.md`](docs/harmonisation-noms-maladies.md) — audit et résolution du nommage des maladies
 - [`docs/refactoring.md`](docs/refactoring.md) — suivi détaillé du refactoring CDSD -> ce dépôt
 - [`docs/deploiement-render-streamlit.md`](docs/deploiement-render-streamlit.md) — déploiement en production (Render / Streamlit Community Cloud)
+- [`docs/iam-aws.md`](docs/iam-aws.md) — accès AWS : un user IAM par composant (api, ui, labeling, airflow/training), droits S3 et rotation des clés
 - [`labeling/README.md`](labeling/README.md) — dashboard de labellisation des photos (tri incoming/accepted/rejected, drift)
 - [`ui/README.md`](ui/README.md) — interface Streamlit de diagnostic

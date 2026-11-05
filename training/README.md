@@ -70,6 +70,7 @@ provenance exacte n'est pas documentée dans le code.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.template .env   # puis compléter (AWS_* notamment)
+# AWS_* : clé du user IAM `vitiscan-pipeline` (cf. docs/iam-aws.md) : datasets s3-vitiscan-data + artefacts MLflow
 
 # Test rapide (peu d'epochs, peu de batches) - cf. NB Important de specs.md :
 python train.py --epochs 1 --limit-batches 5

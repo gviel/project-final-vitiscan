@@ -84,7 +84,8 @@ rien d'ingéré (cf. `docs/harmonisation-noms-maladies.md` pour ce comportement)
    `vitiscan-rag-llm` et `vitiscan-rag-llm-validation`.
 3. Renseigner les variables marquées `sync: false` quand demandé (une seule fois, à la création) :
    `MLFLOW_MODEL_ID`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (mêmes valeurs que
-   `api/.env`, cf. `api/.env.template`).
+   `api/.env`, cf. `api/.env.template`). La clé AWS est celle du user IAM **`vitiscan-api`**
+   (lecture seule des artefacts MLflow), pas une clé générique : cf. [`docs/iam-aws.md`](iam-aws.md).
 4. Déployer. Le build utilise `dockerfilePath: api/Dockerfile` avec un contexte de build = racine
    du dépôt (défaut Render), cohérent avec `docker-compose.yml` (`context: .`,
    `dockerfile: api/Dockerfile`) — pas besoin d'un `dockerContext` différent.
@@ -147,6 +148,10 @@ curl -X POST https://<votre-service>.onrender.com/solutions \
    MOCK = "0"
    DEBUG = "0"
    ```
+   Pour sauvegarder les photos (`ui/storage.py`), ajouter aussi `AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `PHOTOS_S3_BUCKET`, `PHOTOS_S3_PREFIX` et
+   `DATABASE_URL`, avec la clé du user IAM **`vitiscan-ui`** (écriture seule dans
+   `user-photos/incoming/`). Un échec S3 n'empêche pas l'affichage du diagnostic.
 4. Le thème (`ui/.streamlit/config.toml`, vert agriculture) est repris automatiquement — pas de
    configuration supplémentaire côté Streamlit Cloud.
 
@@ -164,6 +169,7 @@ le diagnostic et le plan de traitement s'affichent (bout en bout à travers les 
    ```toml
    API_DIAGNO = "https://<votre-service-api>.onrender.com"
 
+   # clé du user IAM `vitiscan-labeling` (lecture + déplacement/suppression des photos), cf. docs/iam-aws.md
    AWS_ACCESS_KEY_ID = "..."
    AWS_SECRET_ACCESS_KEY = "..."
    AWS_DEFAULT_REGION = "eu-west-3"

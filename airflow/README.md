@@ -37,6 +37,7 @@ Gitignoré (`work/` à la racine du `.gitignore` du dépôt) — jamais committ�
 
 ```bash
 cp .env.template .env   # puis compléter (bucket S3, credentials AWS)
+# credentials AWS : clé du user IAM `vitiscan-pipeline` (cf. docs/iam-aws.md), la même que training/.env
 ./start.sh
 ```
 

@@ -31,6 +31,8 @@ Testable en local sous Docker, déployable ensuite sur Streamlit Community Cloud
 préfixe `PHOTOS_S3_PREFIX`) et ses métadonnées (GPS, timestamp EXIF, prédiction, `model_version`)
 dans une table Neon (`vitiscan_photos`, schéma dans `labeling/db/schema.sql`) — voir
 `ui/.env.template` pour les variables à renseigner (`AWS_*`, `DATABASE_URL`, `PHOTOS_S3_*`).
+La clé AWS de `ui/` est celle du user IAM `vitiscan-ui`, en écriture seule sur
+`user-photos/incoming/` (cf. [`docs/iam-aws.md`](../docs/iam-aws.md)).
 
 Cette sauvegarde alimente le dashboard `labeling/` (labellisation humaine + calcul de drift, cf.
 `labeling/README.md`). Un échec S3/Neon n'empêche jamais l'affichage du diagnostic déjà obtenu par

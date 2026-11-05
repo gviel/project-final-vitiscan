@@ -21,6 +21,7 @@ cloné sur Streamlit Community Cloud) — ne pas dupliquer ce fichier ailleurs.
 
 ```bash
 cp .env.template .env   # puis compléter (AWS_*, DATABASE_URL, API_DIAGNO)
+# AWS_* : clé du user IAM `vitiscan-labeling` (lecture + déplacement/suppression des photos), cf. docs/iam-aws.md
 pip install -r requirements.txt
 streamlit run app.py
 ```
