@@ -29,7 +29,7 @@ def call_llm(
     timeout: int = 30,
 ) -> str:
     """
-    Appelle le modèle LLM via le router Hugging Face (API compatible OpenAI)
+    Appelle le modèle LLM via une API compatible OpenAI (Groq par défaut, cf. config.py)
     et renvoie le texte généré.
     """
     if not prompt or not prompt.strip():
@@ -53,7 +53,7 @@ def call_llm(
             response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=timeout)
 
             if response.status_code != 200:
-                raise LLMError(f"Erreur API HF (status {response.status_code}): {response.text}")
+                raise LLMError(f"Erreur API LLM (status {response.status_code}): {response.text}")
 
             data = response.json()
 

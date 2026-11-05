@@ -111,8 +111,11 @@ Créé automatiquement par le même Blueprint, en 2 exemplaires :
   avant de promouvoir les documents vers la branche Neon prod - jamais exposé à `ui/` ni aux
   utilisateurs finaux.
 
-Renseigner à la création de chacun : `HF_API_TOKEN` (cf. `rag-llm/.env.template`), `DATABASE_URL`
-(branche Neon correspondante, cf. section ci-dessus).
+Renseigner à la création de chacun : `HF_API_URL`, `HF_API_TOKEN` et `HF_MODEL_ID` (fournisseur LLM,
+actuellement Groq : `HF_API_TOKEN` y contient la clé API Groq, cf. `rag-llm/.env.template`) et
+`DATABASE_URL` (branche Neon correspondante, cf. section ci-dessus). Les valeurs de `render.yaml` ne
+s'appliquent qu'à la création : pour changer de fournisseur ou renouveler la clé, modifier ces
+variables sur **chaque** service dans Render (Settings → Environment).
 
 **Ingestion des documents** : contrairement à `docker-compose` en local (où `python -m
 app.ingestion` se lance manuellement), rien n'ingère automatiquement les fiches

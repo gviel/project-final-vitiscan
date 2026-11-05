@@ -245,7 +245,7 @@ def generate_treatment_advice(payload: Dict[str, Any]) -> Dict[str, Any]:
         print("\n===== PROMPT ENVOYÉ AU LLM =====\n")
         print(prompt)
 
-    # 5. Appel au LLM Hugging Face via le wrapper + parsing structuré.
+    # 5. Appel au LLM (Groq par défaut) via le wrapper + parsing structuré.
     try:
         raw_llm_text = call_llm(prompt, max_new_tokens=700, temperature=0.2, top_p=0.9)
 

@@ -62,11 +62,11 @@ projects:
             healthCheckPath: /health
             envVars:
               - key: HF_API_URL
-                value: https://router.huggingface.co/v1/chat/completions
+                value: https://api.groq.com/openai/v1/chat/completions
               - key: HF_API_TOKEN
                 sync: false
               - key: HF_MODEL_ID
-                value: meta-llama/Llama-3.1-8B-Instruct
+                value: qwen/qwen3.8-27b
               # --- Ancien Weaviate/ngrok, désactivé depuis la migration pgvector (cf.
               # docs/deploiement-render-streamlit.md) — conservé commenté pour référence
               # historique ---
@@ -115,11 +115,11 @@ projects:
             healthCheckPath: /health
             envVars:
               - key: HF_API_URL
-                value: https://router.huggingface.co/v1/chat/completions
+                value: https://api.groq.com/openai/v1/chat/completions
               - key: HF_API_TOKEN
                 sync: false
               - key: HF_MODEL_ID
-                value: meta-llama/Llama-3.1-8B-Instruct
+                value: qwen/qwen3.8-27b
               # Branche Neon "validation" (pas "prod") - URL pooled, cf.
               # dags/config.py::DATABASE_URL_VALIDATION.
               - key: DATABASE_URL

@@ -2,12 +2,14 @@
 
 API FastAPI qui prend un diagnostic (label de maladie + mode de conduite + gravité + surface) et renvoie un
 plan de traitement structuré : recherche RAG dans Postgres/pgvector (`app/vector_store.py`) + génération LLM
-(Hugging Face Inference router, `app/llm_client.py`) + calcul de dosage déterministe (`app/dosage_rules.py`).
+(API compatible OpenAI, Groq par défaut, `app/llm_client.py`) + calcul de dosage déterministe (`app/dosage_rules.py`).
 
 ## Modèles utilisés
 
-- LLM : Hugging Face Inference router, `meta-llama/Meta-Llama-3-8B-Instruct` par défaut (configurable via
-  `HF_MODEL_ID`).
+- LLM : Groq (API compatible OpenAI, quota gratuit), `qwen/qwen3.8-27b` (configurable via `HF_API_URL`,
+  `HF_API_TOKEN` et `HF_MODEL_ID`). Les noms `HF_*` sont historiques (le service passait par le router
+  Hugging Face, dont les crédits d'inférence gratuits sont limités) : `HF_API_TOKEN` contient la clé API
+  du fournisseur LLM, pas un token Hugging Face.
 - Embeddings : `sentence-transformers/all-MiniLM-L6-v2` (local, calculé côté client).
 
 ## Structure
