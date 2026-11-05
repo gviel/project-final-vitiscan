@@ -39,6 +39,10 @@ projects:
             envVars:
               - key: MLFLOW_TRACKING_URI
                 value: https://gviel-mlflow37.hf.space
+              - key: MLFLOW_TRACKING_USERNAME  # compte MLflow en lecture seule
+                value: reader
+              - key: MLFLOW_TRACKING_PASSWORD
+                sync: false  # à saisir dans l'UI Render (secret)
               - key: MLFLOW_MODEL_ID
                 sync: false  # id du Logged Model MLflow à servir, cf. api/.env.template
               - key: AWS_ACCESS_KEY_ID
