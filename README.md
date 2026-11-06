@@ -58,6 +58,8 @@ jamais commité). Les fichiers réels sont centralisés dans `~/.vitiscan/` et s
 
 MLflow est déployé séparément sur Hugging Face Spaces et n'est pas géré par ce dépôt.
 
+**Authentification MLflow.** Le serveur MLflow est protégé par une authentification HTTP basic (compte `reader` en lecture seule, compte `admin` pour écrire). Le client MLflow lit `MLFLOW_TRACKING_USERNAME` et `MLFLOW_TRACKING_PASSWORD` dans l'environnement : aucun changement de code. Sans ces variables, toute requête reçoit un 401. Ici : `reader` pour `api/` (`api/.env`, variables du service Render), `admin` pour `training/` (`training/.env`) et pour Airflow (`airflow/.env`, transmis aux conteneurs par `airflow/start.sh` puis `airflow/docker-compose.yml`). Le service Render `vitiscan-api` charge son modèle en arrière-plan au démarrage (environ 150 s) : `/health` renvoie `model_not_loaded` tant que ce n'est pas terminé.
+
 ## Nommage des maladies
 
 Les 9 fiches de `rag-llm/data/knowledge/` utilisent un identifiant canonique unique (nom de fichier

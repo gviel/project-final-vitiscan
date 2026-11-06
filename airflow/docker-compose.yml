@@ -70,6 +70,9 @@ x-airflow-common:
     # Docker séparé.
     TRAINING_DATA_DIR: "/opt/airflow/work/training-data"
     MLFLOW_URI: "${MLFLOW_URI:-https://gviel-mlflow37.hf.space/}"
+    # Authentification du serveur MLflow (Space HF, basic-auth) : compte admin (train.py écrit)
+    MLFLOW_TRACKING_USERNAME: "${MLFLOW_TRACKING_USERNAME:-}"
+    MLFLOW_TRACKING_PASSWORD: "${MLFLOW_TRACKING_PASSWORD:-}"
     EXPERIMENT_NAME: "${EXPERIMENT_NAME:-Vitiscan_CNN_Resnet_INRAE}"
     TRAINING_S3_BUCKET: "${TRAINING_S3_BUCKET:-s3-vitiscan-data}"
     # Variables métier lues par dags/config.py pour dag_retrain_from_labeled_photos (photos
